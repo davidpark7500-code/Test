@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>David Park Promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;700;900&family=Press+Start+2P&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#07070d; --fg:#f4f4f8; --muted:#9a9ab0; --accent:#ffcc33; --panel:#14141f; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --bg:#eceef4; --fg:#15151f; --muted:#5a5a70; --panel:#ffffff; }
+  }
+  :root[data-theme="dark"] { --bg:#07070d; --fg:#f4f4f8; --muted:#9a9ab0; --panel:#14141f; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:Inter,system-ui,sans-serif;
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; }
+  .stage { width:100%; max-width:1280px; }
+  canvas { width:100%; aspect-ratio:16/9; display:block; border-radius:12px; background:#000;
+           box-shadow:0 20px 60px rgba(0,0,0,.45); cursor:pointer; }
+  .bar { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  button { font:700 14px Inter,sans-serif; border:0; border-radius:999px; padding:10px 18px; cursor:pointer;
+           background:var(--accent); color:#111; }
+  button.ghost { background:var(--panel); color:var(--fg); border:1px solid rgba(128,128,160,.35); }
+  input[type=range] { flex:1; min-width:140px; accent-color:var(--accent); }
+  .time { font:500 13px 'JetBrains Mono',monospace; color:var(--muted); min-width:92px; text-align:right; }
+  .note { color:var(--muted); font-size:13px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <canvas id="c" width="1920" height="1080" aria-label="David Park 60-second promo video"></canvas>
+  <div class="bar">
+    <button id="play">▶ Play</button>
+    <button id="restart" class="ghost">↺ Restart</button>
+    <button id="sound" class="ghost">🔊 Sound on</button>
+    <input id="seek" type="range" min="0" max="60" step="0.01" value="0" aria-label="Seek">
+    <span class="time" id="time">0:00 / 1:00</span>
+    <button id="rec" class="ghost">⬇ Record .webm</button>
+  </div>
+  <div class="note">Click the video or press Space to play. "Record" captures the full 60 seconds, with sound, to a video file.</div>
+</div>
+
+<script>
+(() => {
+const W = 1920, H = 1080, DUR = 60;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const eo = x => 1 - Math.pow(1 - x, 3);
+const eio = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const back = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647, (seed - 1) / 2147483646); }
+
+const F = {
+  bebas: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
+  inter: "Inter, 'Helvetica Neue', Arial, sans-serif",
+  pixel: "'Press Start 2P', 'Courier New', monospace",
+  mono: "'JetBrains Mono', 'Courier New', monospace",
+};
+
+function text(s, x, y, o = {}) {
+  const { size = 80, font = F.inter, weight = '900', color = '#fff', align = 'center', alpha = 1,
+          scale = 1, glow = 0, glowColor = color, rot = 0, base = 'middle', maxW = W - 160 } = o;
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= clamp(alpha);
+  ctx.font = `${weight} ${size}px ${font}`;
+  const mw = ctx.measureText(s).width, fit = mw > maxW ? maxW / mw : 1;
+  ctx.translate(x, y); ctx.rotate(rot); ctx.scale(scale * fit, scale * fit);
+  ctx.textAlign = align; ctx.textBaseline = base;
+  if (glow) { ctx.shadowColor = glowColor; ctx.shadowBlur = glow; }
+  ctx.fillStyle = color; ctx.fillText(s, 0, 0);
+  ctx.restore();
+}
+function rrect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function bgGrad(c1, c2) {
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, c1); g.addColorStop(1, c2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function vignette() {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * .95);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.65)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+
+// starfield (deterministic from t)
+const R = rng(42);
+const stars = Array.from({ length: 220 }, () => ({ x: R() * W, y: R() * H, z: .2 + R() * .8, tw: R() * 6 }));
+function starfield(t, speed = 60, color = '255,255,255') {
+  for (const s of stars) {
+    const x = ((s.x - t * speed * s.z) % W + W) % W;
+    const a = .25 + .5 * s.z * (.6 + .4 * Math.sin(t * 3 + s.tw));
+    ctx.fillStyle = `rgba(${color},${a})`;
+    ctx.fillRect(x, s.y, 2 + s.z * 3, 2 + s.z * 3);
+  }
+}
+function burst(t, cx, cy, n, color, spin = .2) {
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(t * spin);
+  for (let i = 0; i < n; i++) {
+    ctx.rotate(Math.PI * 2 / n);
+    ctx.fillStyle = i % 2 ? color : 'rgba(0,0,0,0)';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(2400, -120); ctx.lineTo(2400, 120); ctx.fill();
+  }
+  ctx.restore();
+}
+// confetti (deterministic)
+const RC = rng(7);
+const confetti = Array.from({ length: 260 }, () => ({
+  x: RC() * W, vy: 180 + RC() * 360, vx: (RC() - .5) * 160, rot: RC() * 6, vr: (RC() - .5) * 8,
+  w: 10 + RC() * 16, h: 6 + RC() * 10, c: ['#ffcc33', '#ff4d8d', '#35d0ff', '#7cff6b', '#b16cff', '#ffffff'][Math.floor(RC() * 6)], d: RC() * 1.2,
+}));
+function drawConfetti(lt) {
+  for (const c of confetti) {
+    const tt = lt - c.d; if (tt < 0) continue;
+    const y = -40 + c.vy * tt, x = c.x + c.vx * tt + Math.sin(tt * 3 + c.rot) * 30;
+    if (y > H + 40) continue;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(c.rot + c.vr * tt);
+    ctx.fillStyle = c.c; ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h); ctx.restore();
+  }
+}
+function chip(label, x, y, color, alpha, size = 38) {
+  if (alpha <= 0) return;
+  ctx.save(); ctx.globalAlpha *= alpha;
+  ctx.font = `700 ${size}px ${F.inter}`;
+  const w = ctx.measureText(label).width + size * 1.3, h = size * 1.8;
+  rrect(x - w / 2, y - h / 2, w, h, h / 2);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = color; ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, x, y + 2); ctx.restore();
+}
+
+// ---------- scenes ----------
+// Facts pulled from David's Claude Code session history (Jul 21 – Sep 26, 2026).
+const scenes = [
+  { a: 0, b: 6, draw(lt) {            // 1. Title reveal
+    bgGrad('#12002b', '#000814');
+    burst(lt, W / 2, H / 2, 24, 'rgba(255,204,51,.06)', .15);
+    starfield(lt, 40);
+    const name = 'DAVID PARK';
+    let fs = 300; ctx.font = `400 ${fs}px ${F.bebas}`;
+    const raw = ctx.measureText(name).width;
+    if (raw > W - 200) { fs = Math.floor(fs * (W - 200) / raw); ctx.font = `400 ${fs}px ${F.bebas}`; }
+    const total = ctx.measureText(name).width;
+    let x = W / 2 - total / 2;
+    for (let i = 0; i < name.length; i++) {
+      const ch = name[i], cw = ctx.measureText(ch).width;
+      const p = prog(lt, .25 + i * .09, .75 + i * .09);
+      const y = lerp(-200, H / 2 - 40, back(p));
+      text(ch, x + cw / 2, y, { size: fs, font: F.bebas, weight: '400', color: '#ffcc33', glow: 40, glowColor: '#ff8800', alpha: p * 4 });
+      x += cw;
+    }
+    const u = eo(prog(lt, 1.6, 2.4));
+    ctx.fillStyle = '#ff4d8d'; ctx.fillRect(W / 2 - 520 * u, H / 2 + 110, 1040 * u, 10);
+    const sub = 'BUILDER  ·  DREAMER  ·  SHIPPER';
+    const n = Math.floor(prog(lt, 2.4, 3.8) * sub.length);
+    text(sub.slice(0, n), W / 2, H / 2 + 200, { size: 64, font: F.bebas, weight: '400', color: '#ffffff' });
+    text('A 60-SECOND ORIGIN STORY', W / 2, H - 110, { size: 34, font: F.mono, weight: '500', color: '#9aa4ff', alpha: prog(lt, 4, 4.6) });
+  }},
+  { a: 6, b: 12, draw(lt) {           // 2. It started with a prompt
+    bgGrad('#001018', '#02050a');
+    starfield(lt + 6, 80, '120,220,255');
+    // terminal
+    const tp = eo(prog(lt, 0, .5));
+    ctx.save(); ctx.globalAlpha = tp;
+    rrect(260, 150, 1400, 300, 24); ctx.fillStyle = 'rgba(10,16,24,.92)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(80,220,255,.5)'; ctx.lineWidth = 3; ctx.stroke();
+    ['#ff5f57', '#febc2e', '#28c840'].forEach((c, i) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(310 + i * 40, 195, 12, 0, 7); ctx.fill(); });
+    ctx.restore();
+    const cmd = '> claude "let\'s build something that matters"';
+    const n = Math.floor(prog(lt, .4, 2.2) * cmd.length);
+    const cursor = Math.floor(lt * 3) % 2 ? '█' : ' ';
+    text(cmd.slice(0, n) + cursor, 320, 320, { size: 48, font: F.mono, weight: '500', color: '#7cffb2', align: 'left', alpha: tp });
+    text('JULY 21, 2026. IT STARTED WITH ONE PROMPT.', W / 2, 530, { size: 72, font: F.bebas, weight: '400', color: '#fff', alpha: prog(lt, 2.2, 2.7) });
+    const stats = [['25+', 'CLAUDE SESSIONS'], ['8+', 'APPS DREAMED UP'], ['5', 'GITHUB REPOS'], ['67', 'DAYS OF BUILDING']];
+    stats.forEach(([num, lbl], i) => {
+      const p = prog(lt, 2.8 + i * .35, 3.5 + i * .35);
+      const x = 330 + i * 420, y = 790;
+      const target = parseInt(num), plus = num.endsWith('+') ? '+' : '';
+      const shown = Math.round(target * eo(prog(lt, 2.8 + i * .35, 4.4 + i * .35))) + plus;
+      text(shown, x, y - 20 + (1 - back(p)) * 60, { size: 170, font: F.bebas, weight: '400', color: ['#ffcc33', '#ff4d8d', '#35d0ff', '#7cff6b'][i], alpha: p * 3, glow: 25 });
+      text(lbl, x, y + 95, { size: 30, font: F.inter, weight: '700', color: '#cfd6e6', alpha: p });
+    });
+  }},
+  { a: 12, b: 18, draw(lt) {          // 3. Pulse — health
+    bgGrad('#1a0008', '#060006');
+    // ECG line
+    ctx.save(); ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 8; ctx.shadowColor = '#ff3b5c'; ctx.shadowBlur = 25;
+    ctx.beginPath();
+    const head = lt * 520;
+    for (let x = 0; x <= W; x += 6) {
+      const d = head - x; if (d < 0) break;
+      const ph = (x % 480) / 480;
+      let y = 0;
+      if (ph > .40 && ph < .45) y = -40; else if (ph > .47 && ph < .50) y = 60;
+      else if (ph >= .50 && ph < .54) y = -260; else if (ph >= .54 && ph < .58) y = 120; else if (ph > .66 && ph < .74) y = -45;
+      const fade = clamp(1 - d / 1800);
+      ctx.globalAlpha = .25 + .75 * fade;
+      x === 0 ? ctx.moveTo(x, 640 + y) : ctx.lineTo(x, 640 + y);
+    }
+    ctx.stroke(); ctx.restore();
+    const beat = 1 + .08 * Math.pow(Math.max(0, Math.sin(lt * Math.PI * 2)), 12);
+    text('❤', W / 2 - 420, 250, { size: 150, color: '#ff3b5c', scale: beat * eo(prog(lt, .2, .7)), glow: 40 });
+    text('PULSE', W / 2 + 60, 260, { size: 260, font: F.bebas, weight: '400', color: '#fff', scale: beat, alpha: prog(lt, .2, .7), glow: 30, glowColor: '#ff3b5c' });
+    text('He started with health, because people matter.', W / 2, 890, { size: 52, weight: '700', color: '#ffd6de', alpha: prog(lt, 1.2, 1.8) });
+    ['Pulse Tracker', 'Hearth', 'Healthcare Docs App'].forEach((c, i) =>
+      chip(c, W / 2 + (i - 1) * 470, 1000, '#ff3b5c', prog(lt, 2 + i * .3, 2.4 + i * .3)));
+  }},
+  { a: 18, b: 24, draw(lt) {          // 4. Raymore Connect — community
+    bgGrad('#00182a', '#001006');
+    const r = rng(99);
+    const nodes = Array.from({ length: 34 }, () => ({ x: 160 + r() * 1600, y: 140 + r() * 520, d: r() * 2.2 }));
+    ctx.lineWidth = 3;
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const A = nodes[i], B = nodes[j], dist = Math.hypot(A.x - B.x, A.y - B.y);
+      if (dist > 330) continue;
+      const p = prog(lt, Math.max(A.d, B.d) + .3, Math.max(A.d, B.d) + 1);
+      if (p <= 0) continue;
+      ctx.strokeStyle = `rgba(53,208,255,${.55 * p})`;
+      ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(lerp(A.x, B.x, p), lerp(A.y, B.y, p)); ctx.stroke();
+    }
+    nodes.forEach((n, i) => {
+      const p = back(prog(lt, n.d, n.d + .4));
+      ctx.fillStyle = i % 3 ? '#35d0ff' : '#7cff6b';
+      ctx.beginPath(); ctx.arc(n.x, n.y + Math.sin(lt * 2 + i) * 6, 16 * p, 0, 7); ctx.fill();
+    });
+    text('RAYMORE CONNECT', W / 2, 800, { size: 190, font: F.bebas, weight: '400', color: '#fff', alpha: prog(lt, .6, 1.1), scale: lerp(1.2, 1, eo(prog(lt, .6, 1.2))), glow: 30, glowColor: '#35d0ff' });
+    text('Bringing a whole community onto one app.', W / 2, 930, { size: 52, weight: '700', color: '#bff3ff', alpha: prog(lt, 1.6, 2.2) });
+  }},
+  { a: 24, b: 30, draw(lt) {          // 5. Money moves — financial app
+    bgGrad('#001a0e', '#020a04');
+    ctx.strokeStyle = 'rgba(124,255,107,.08)'; ctx.lineWidth = 2;
+    for (let x = 0; x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    const r = rng(5); let v = 830;
+    const candles = Array.from({ length: 26 }, (_, i) => { const o = v; v -= 14 + r() * 34 - (r() < .25 ? 50 : 0); return { o, c: v, hi: Math.min(o, v) - r() * 40, lo: Math.max(o, v) + r() * 40 }; });
+    candles.forEach((k, i) => {
+      const p = prog(lt, i * .12, i * .12 + .3); if (p <= 0) return;
+      const x = 140 + i * 64, up = k.c < k.o, col = up ? '#7cff6b' : '#ff4d6d';
+      ctx.globalAlpha = p; ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(x, k.hi); ctx.lineTo(x, k.lo); ctx.stroke();
+      const top = Math.min(k.o, k.c), h = Math.max(8, Math.abs(k.o - k.c));
+      ctx.fillRect(x - 18, top + h * (1 - p), 36, h * p); ctx.globalAlpha = 1;
+    });
+    const arrowP = eo(prog(lt, 3, 3.8));
+    text('📈', 1760, lerp(700, 260, arrowP), { size: 160, alpha: arrowP });
+    text('MONEY MOVES', W / 2, 170, { size: 170, font: F.bebas, weight: '400', color: '#7cff6b', alpha: prog(lt, .3, .8), glow: 30 });
+    text('Turned an investing roadmap into a real financial app.', W / 2, 960, { size: 50, weight: '700', color: '#e6ffe0', alpha: prog(lt, 1.4, 2) });
+  }},
+  { a: 30, b: 37, draw(lt) {          // 6. Omni Mission Control
+    bgGrad('#040a14', '#000');
+    const cx = 560, cy = 540, rad = 360;
+    ctx.save(); ctx.strokeStyle = 'rgba(53,208,255,.4)'; ctx.lineWidth = 3;
+    for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, rad * i / 4, 0, 7); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(cx - rad, cy); ctx.lineTo(cx + rad, cy); ctx.moveTo(cx, cy - rad); ctx.lineTo(cx, cy + rad); ctx.stroke();
+    const ang = lt * 2.2;
+    const sg = ctx.createConicGradient ? ctx.createConicGradient(ang - .9, cx, cy) : null;
+    if (sg) { sg.addColorStop(0, 'rgba(53,208,255,0)'); sg.addColorStop(.14, 'rgba(53,208,255,.45)'); sg.addColorStop(.1401, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 7); ctx.fill(); }
+    const r = rng(11);
+    for (let i = 0; i < 14; i++) {
+      const a = r() * 6.283, d = 60 + r() * 280, bx = cx + Math.cos(a) * d, by = cy + Math.sin(a) * d;
+      const since = ((ang - a) % 6.283 + 6.283) % 6.283;
+      ctx.fillStyle = `rgba(124,255,107,${clamp(1 - since / 3)})`;
+      ctx.beginPath(); ctx.arc(bx, by, 12, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+    text('OMNI', 1400, 230, { maxW: 860, size: 220, font: F.bebas, weight: '400', color: '#35d0ff', alpha: prog(lt, .2, .6), glow: 40 });
+    text('MISSION CONTROL', 1400, 380, { maxW: 820, size: 110, font: F.bebas, weight: '400', color: '#fff', alpha: prog(lt, .5, .9) });
+    const lines = ['> AI WORKFORCE .......... ONLINE', '> GAP ANALYSIS .......... DONE', '> LEAD RESPONSE ......... 60 SEC', '> SESSIONS DEEP ......... 7', '> STATUS ................ SCALING'];
+    lines.forEach((l, i) => {
+      const p = prog(lt, 1.3 + i * .55, 1.8 + i * .55);
+      const n = Math.floor(p * l.length);
+      text(l.slice(0, n), 1000, 540 + i * 80, { size: 40, font: F.mono, weight: '500', color: i === 4 ? '#ffcc33' : '#7cffb2', align: 'left' });
+    });
+  }},
+  { a: 37, b: 43, draw(lt) {          // 7. Totally Radimals — retro pixel
+    const off = (lt * 120) % 120;
+    for (let y = -120; y < H; y += 60) for (let x = -120; x < W; x += 60) {
+      ctx.fillStyle = ((x + y) / 60) % 2 ? '#2b0a5a' : '#3d0f7a'; ctx.fillRect(x + off, y + off / 2, 60, 60);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < H; y += 6) ctx.fillRect(0, y, W, 2); // scanlines
+    // pixel critter
+    const sprite = ['..X....X..', '.XXX..XXX.', '.XXXXXXXX.', 'XX.XXXX.XX', 'XXXXXXXXXX', 'XXX.XX.XXX', '.XXXXXXXX.', '..XX..XX..'];
+    const px = 26, sw = sprite[0].length * px, hop = Math.abs(Math.sin(lt * 5)) * 80;
+    [['#ff4d8d', 430], ['#35d0ff', 960], ['#7cff6b', 1490]].forEach(([col, sx], k) => {
+      const p = back(prog(lt, .2 + k * .2, .7 + k * .2));
+      sprite.forEach((row, ry) => [...row].forEach((c, rx) => {
+        if (c !== 'X') return;
+        ctx.fillStyle = col; ctx.fillRect(sx - sw / 2 + rx * px, 700 - hop * (k % 2 ? 1 : .6) + ry * px - (1 - p) * 600, px - 2, px - 2);
+      }));
+    });
+    const wob = Math.sin(lt * 8) * .03;
+    text('TOTALLY', W / 2, 200, { size: 90, font: F.pixel, weight: '400', color: '#ffcc33', rot: wob, alpha: prog(lt, .1, .3), glow: 20 });
+    text('RADIMALS!', W / 2, 340, { size: 120, font: F.pixel, weight: '400', color: '#fff', rot: -wob, scale: back(prog(lt, .3, .8)), glow: 30, glowColor: '#ff4d8d' });
+    text('Retro fun at 56K dial-up energy', W / 2, 1000, { size: 34, font: F.pixel, weight: '400', color: '#7cff6b', alpha: prog(lt, 1.5, 2) });
+  }},
+  { a: 43, b: 49, draw(lt) {          // 8. Montage — and he didn't stop
+    bgGrad('#1b0030', '#00121f');
+    starfield(lt * 3, 220, '255,220,120');
+    text("AND HE DIDN'T STOP.", W / 2, 150, { size: 140, font: F.bebas, weight: '400', color: '#fff', alpha: prog(lt, 0, .4), glow: 20 });
+    const cards = [['🤝', 'Sponsor Onboarding App'], ['✅', 'Attest'], ['🌾', 'Back Forty'], ['🔥', 'Hearth'], ['🌐', 'Claude in Chrome'], ['🎬', '3 Promo Videos']];
+    cards.forEach(([ic, lbl], i) => {
+      const p = back(prog(lt, .5 + i * .45, 1.1 + i * .45));
+      if (p <= 0) return;
+      const col = i % 3, row = Math.floor(i / 3);
+      const x = 380 + col * 580, y = 420 + row * 330;
+      const fromX = i % 2 ? W + 400 : -400;
+      ctx.save(); ctx.translate(lerp(fromX, x, p), y); ctx.rotate((1 - p) * (i % 2 ? .4 : -.4) + Math.sin(lt * 2 + i) * .02);
+      rrect(-250, -130, 500, 260, 28);
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fill(); ctx.strokeStyle = ['#ffcc33', '#ff4d8d', '#35d0ff'][i % 3]; ctx.lineWidth = 4; ctx.stroke();
+      ctx.restore();
+      text(ic, lerp(fromX, x, p), y - 40, { size: 90 });
+      text(lbl, lerp(fromX, x, p), y + 70, { size: 40, weight: '800', color: '#fff' });
+    });
+  }},
+  { a: 49, b: 54, draw(lt) {          // 9. Slam words
+    const words = [['DREAM IT.', '#ff4d8d'], ['PROMPT IT.', '#35d0ff'], ['BUILD IT.', '#7cff6b'], ['SHIP IT.', '#ffcc33'], ['REPEAT.', '#ffffff']];
+    const i = Math.min(4, Math.floor(lt / 1));
+    const [w, col] = words[i];
+    const lp = lt - i;
+    ctx.fillStyle = i === 4 ? '#111' : col; ctx.fillRect(0, 0, W, H);
+    burst(lt, W / 2, H / 2, 18, 'rgba(0,0,0,.08)', .6);
+    const s = lerp(2.2, 1, eo(clamp(lp / .25)));
+    const shake = lp < .3 ? (Math.sin(lp * 120) * 14 * (1 - lp / .3)) : 0;
+    text(w, W / 2 + shake, H / 2 + 20, { size: 330, font: F.bebas, weight: '400', color: i === 4 ? col : '#0a0a12', scale: s });
+    if (lp < .12) { ctx.fillStyle = `rgba(255,255,255,${1 - lp / .12})`; ctx.fillRect(0, 0, W, H); }
+  }},
+  { a: 54, b: 60, draw(lt) {          // 10. Finale
+    bgGrad('#1a0b00', '#000');
+    burst(lt, W / 2, H / 2 - 40, 30, 'rgba(255,204,51,.08)', .25);
+    drawConfetti(lt);
+    const p = eo(prog(lt, 0, .8));
+    text('DAVID PARK', W / 2, H / 2 - 80, { size: 330, font: F.bebas, weight: '400', color: '#ffcc33', scale: lerp(.6, 1, p) + Math.sin(lt * 3) * .01, alpha: p, glow: 60, glowColor: '#ff9900' });
+    text('Build the future. One prompt at a time.', W / 2, H / 2 + 130, { size: 64, weight: '800', color: '#fff', alpha: prog(lt, 1, 1.6) });
+    text('#KEEPSHIPPING', W / 2, H / 2 + 260, { size: 70, font: F.bebas, weight: '400', color: '#ff4d8d', alpha: prog(lt, 2, 2.5), glow: 20 });
+    const out = prog(lt, 5.3, 6);
+    if (out > 0) { ctx.fillStyle = `rgba(0,0,0,${out})`; ctx.fillRect(0, 0, W, H); }
+  }},
+];
+
+function render(t) {
+  t = clamp(t, 0, DUR - 1e-3);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  const s = scenes.find(sc => t >= sc.a && t < sc.b);
+  const lt = t - s.a;
+  ctx.save(); s.draw(lt); ctx.restore();
+  vignette();
+  // flash on cut
+  const fin = clamp(1 - lt / .25);
+  if (s.a > 0 && s.a !== 49 && fin > 0) { ctx.fillStyle = `rgba(255,255,255,${fin * .7})`; ctx.fillRect(0, 0, W, H); }
+  // progress bar
+  ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(0, H - 8, W, 8);
+  ctx.fillStyle = '#ffcc33'; ctx.fillRect(0, H - 8, W * t / DUR, 8);
+}
+
+// ---------- audio (synthesized, 120 BPM) ----------
+let actx = null, master = null, soundOn = true, nextBeat = 0;
+const BPM = 120, BEAT = 60 / BPM;
+const bassline = [45, 45, 48, 50, 43, 43, 47, 50]; // MIDI roots
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function limiter(ac) {
+  const c = ac.createDynamicsCompressor();
+  c.threshold.value = -10; c.knee.value = 6; c.ratio.value = 12; c.attack.value = .003; c.release.value = .15;
+  const g = ac.createGain(); g.gain.value = .9;
+  c.connect(g).connect(ac.destination); return c;
+}
+function ensureAudio() {
+  if (actx) return;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  master = actx.createGain(); master.gain.value = .35; master.connect(limiter(actx));
+}
+function kick(at) { const o = actx.createOscillator(), g = actx.createGain();
+  o.frequency.setValueAtTime(150, at); o.frequency.exponentialRampToValueAtTime(40, at + .15);
+  g.gain.setValueAtTime(1, at); g.gain.exponentialRampToValueAtTime(.001, at + .3);
+  o.connect(g).connect(master); o.start(at); o.stop(at + .32); }
+let noiseBuf = null;
+function noise(at, dur, vol, hp) {
+  if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = hp;
+  g.gain.setValueAtTime(vol, at); g.gain.exponentialRampToValueAtTime(.001, at + dur);
+  s.connect(f).connect(g).connect(master); s.start(at); s.stop(at + dur + .02); }
+function tone(at, freq, dur, vol, type = 'sawtooth') {
+  const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
+  o.type = type; o.frequency.value = freq; f.type = 'lowpass'; f.frequency.value = 900;
+  g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vol, at + .01); g.gain.exponentialRampToValueAtTime(.001, at + dur);
+  o.connect(f).connect(g).connect(master); o.start(at); o.stop(at + dur + .02); }
+function scheduleAudio(t, horizon = t + .15) {
+  if (!actx || !soundOn) return;
+  const now = actx.currentTime;
+  while (nextBeat * BEAT < horizon) {
+    const bt = nextBeat * BEAT; const at = now + Math.max(0, bt - t);
+    if (bt < DUR - 1) {
+      const intro = bt < 2;
+      const slam = bt >= 49 && bt < 54;
+      if (!intro) kick(at);
+      noise(at + BEAT / 2, .05, .25, 7000);
+      if (nextBeat % 2 === 1 && !intro) noise(at, .18, .35, 1500);
+      const root = bassline[Math.floor(nextBeat / 4) % bassline.length];
+      tone(at, mtof(root - 12), BEAT * .9, .32);
+      if (bt >= 6) tone(at + BEAT / 2, mtof(root), BEAT * .4, .12, 'square');
+      if (nextBeat % 4 === 0 && bt >= 12) [0, 4, 7, 12].forEach(iv => tone(at, mtof(root + 12 + iv), BEAT * 3.6, .05, 'triangle'));
+      if (slam && nextBeat % 2 === 0) noise(at, .6, .5, 300);
+      if (scenes.some(s => Math.abs(s.a - bt) < 1e-6 && s.a > 0)) noise(at, 1.2, .35, 4000);
+    } else if (Math.abs(bt - (DUR - 1)) < 1e-6) {
+      [0, 4, 7, 12, 16].forEach(iv => tone(at, mtof(57 + iv), 1.8, .07, 'triangle'));
+    }
+    nextBeat++;
+  }
+}
+
+// ---------- player ----------
+let t = 0, playing = false, last = 0;
+const $ = id => document.getElementById(id);
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function sync() { $('seek').value = t; $('time').textContent = `${fmt(t)} / 1:00`; $('play').textContent = playing ? '❚❚ Pause' : '▶ Play'; }
+function play() {
+  if (t >= DUR - .01) t = 0;
+  ensureAudio(); actx.resume();
+  master.gain.cancelScheduledValues(actx.currentTime); master.gain.setValueAtTime(0, actx.currentTime); master.gain.linearRampToValueAtTime(.35, actx.currentTime + .4);
+  nextBeat = Math.ceil(t / BEAT - 1e-6);
+  playing = true; last = performance.now(); sync();
+}
+function pause() { playing = false; sync(); }
+function loop(now) {
+  if (playing) {
+    t += (now - last) / 1000; last = now;
+    scheduleAudio(t);
+    if (t >= DUR) { t = DUR; playing = false; if (recorder) recorder.stop(); }
+  }
+  render(t); sync();
+  requestAnimationFrame(loop);
+}
+$('play').onclick = () => playing ? pause() : play();
+cv.onclick = () => playing ? pause() : play();
+$('restart').onclick = () => { t = 0; play(); };
+$('seek').oninput = e => { t = +e.target.value; nextBeat = Math.ceil(t / BEAT - 1e-6); };
+$('sound').onclick = () => { soundOn = !soundOn; $('sound').textContent = soundOn ? '🔊 Sound on' : '🔇 Sound off'; };
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); } });
+
+// ---------- record to webm ----------
+let recorder = null;
+$('rec').onclick = () => {
+  if (recorder) return;
+  ensureAudio();
+  const stream = cv.captureStream(30);
+  try { const dest = actx.createMediaStreamDestination(); master.connect(dest); dest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr)); } catch (e) {}
+  const chunks = [];
+  recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' });
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+    a.download = 'david-park-promo.webm'; a.click();
+    recorder = null; $('rec').textContent = '⬇ Record .webm';
+  };
+  recorder.start(); $('rec').textContent = '● Recording…';
+  t = 0; play();
+};
+
+window.__render = render; // used for frame-accurate offline export
+window.__renderAudio = async () => { // offline soundtrack render → 16-bit stereo WAV (base64)
+  const sr = 44100, off = new OfflineAudioContext(2, sr * DUR, sr);
+  const saved = [actx, master, noiseBuf, nextBeat, soundOn];
+  actx = off; master = off.createGain(); master.gain.setValueAtTime(0, 0); master.gain.linearRampToValueAtTime(.35, .5); master.connect(limiter(off));
+  noiseBuf = null; nextBeat = 0; soundOn = true;
+  scheduleAudio(0, DUR);
+  const buf = await off.startRendering();
+  [actx, master, noiseBuf, nextBeat, soundOn] = saved;
+  const n = buf.length, L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+  const dv = new DataView(new ArrayBuffer(44 + n * 4));
+  const str = (o, s) => [...s].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); str(8, 'WAVEfmt '); dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true); dv.setUint16(22, 2, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true);
+  dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); str(36, 'data'); dv.setUint32(40, n * 4, true);
+  for (let i = 0; i < n; i++) { dv.setInt16(44 + i * 4, clamp(L[i], -1, 1) * 32767, true); dv.setInt16(46 + i * 4, clamp(Rr[i], -1, 1) * 32767, true); }
+  let bin = ''; const u8 = new Uint8Array(dv.buffer);
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => requestAnimationFrame(loop));
+})();
+</script>
+</body>
+</html>
