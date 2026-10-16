@@ -1,0 +1,18 @@
+{
+  "name": "kept",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kept — Discord-style community platform for accountability communities (fitness, running, pickleball, finance, business). Prototype.",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web",
+    "start": "npm run start -w server",
+    "seed": "npm run seed -w server",
+    "test": "npm run test -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": { "node": ">=20" }
+}
