@@ -123,3 +123,90 @@ Network limits: reddit.com, devforum.zoom.us, ada.gov and some vendor sites were
 - Microsoft Publisher retirement: https://support.microsoft.com/en-US/publisher/microsoft-publisher-will-no-longer-be-supported-after-october-2026
 - Tripleseat reviews: https://capterra.com/p/118047/Tripleseat/reviews/
 - Spectora reviews: https://www.capterra.com/p/157144/Spectora/reviews/?page=5
+
+---
+
+# Round 2: Starting fresh (November 4, 2026)
+
+*Six new search areas, four failure tests, about 230 more web searches. New scoring system: 7 criteria, each scored 1–5 and converted to a score out of 10. The criteria are demand, competition gap, resistance to copycats, founder fit, path to $1M, solo-buildable, and platform risk.*
+
+## Read-aloud summary
+
+Here's the honest result. After the failure tests, nothing scored above 5 out of 10. Every idea that looked strong in the first screening dropped about three points once we tested it.
+
+The four that went into failure tests:
+
+The business phone and video contract advisor went from 8 to 4.5. Vendors usually don't pay commissions on customers who renew directly with them. Taking vendor commissions also conflicts with claiming to be an independent negotiator. And Lightyear and Vendr already offer the price-comparison data for free. A smaller fee-only version survives: a Zoom renewal desk companies pay directly.
+
+Property tax appeals for small Texas landlords went from 7.4 to 5. Big firms do serve rental homes. Ownwell just raised fifty million dollars to go after apartment buildings and commercial property at a 25 percent fee. And appeals on anything other than single-family homes require working under a senior licensed consultant.
+
+The live-on-Zoom continuing education school went from 7.4 to 4. Only North Carolina requires live classes, and large companies already sell them there for 65 to 85 dollars.
+
+The senior transition desk went from 7.4 to 4. Caring Transitions already offers this bundle through more than 400 locations, paying agents for referrals is legally risky, and one person can't run enough jobs to reach a million dollars.
+
+The pattern across both rounds is clear. Any idea that public research can find already has a funded company, an entrenched incumbent, or a flood of copycats. More desk research will keep producing the same answer.
+
+The second hard truth: every idea that survived caps out at roughly three to six hundred thousand dollars a year for a solo founder. Getting to a million almost always takes a second person or a much bigger channel.
+
+My recommendation: stop researching and start talking to customers. Pick one idea and run a two-week test. My pick is the fee-only Zoom renewal desk. Only you can do it, it needs no license, and Zoom's fiscal year-end renewal window is November through January, which is right now. First, spend one hour with an employment lawyer reviewing your Zoom agreements. Then contact forty IT or finance leaders whose Zoom renewals are coming up. If two of them agree to pay, you have a business that brings in cash this winter. The backup is Texas tax appeals, timed for the May 2027 protest season, set up with a senior licensed consultant.
+
+## Scoreboard
+
+| Idea | Screening score | After failure test | Main reason it dropped |
+|---|---|---|---|
+| Texas small-landlord property tax appeals | 7.4 | **5.0** | Big firms already serve single-family rentals; Ownwell's $50M push into apartment buildings and commercial at 25% with no minimum; non-single-family work needs a Senior consultant sponsor; fees arrive once a year |
+| Business phone and video (Zoom, RingCentral, Teams) contract advisor | 8.0 | **4.5** | Direct renewals don't pay commissions; commissions conflict with "independent negotiator"; Lightyear and Vendr are free; legal exposure if Zoom-internal pricing is used |
+| Live-Zoom real estate continuing education | 7.4 | **4.0** | Live classes are only required in North Carolina, where they sell for $65–85; the brokerage channel is held by The CE Shop, Aceable and Kaplan; licensed instructors must be hired |
+| Senior home-transition desk | 7.4 | **4.0** | Caring Transitions (423 locations) already sells this bundle to agents; RESPA referral-fee risk; caps around $400–600K solo |
+| *(Round 1)* HOA resale/estoppel documents | ~5 | not retested | |
+
+## Other round-2 ideas (screened only)
+
+| Score | Idea | Area searched |
+|---|---|---|
+| 7.1 | Senior-living placement advisor | Life events (shares the risks of the transition desk; placement agents must register in WA and OR) |
+| 6.9 | Furnished housing for insurance-displaced families | Marketplaces |
+| 6.6 | Utility bill refund audits for small businesses | AI-run services |
+| 6.6 | AI-assisted public adjusting for storm claims | AI-run services |
+| 6.6 | Medicaid long-term-care application service | Life events |
+| 6.6 | Payment-change and deepfake-executive verification sold through bookkeepers | Problems created by AI |
+| 6.6 | Seller identity verification before listing | Problems created by AI (Property Shield and CertifID already own the channels) |
+| 6.6 | Real estate exam live cram | Required training |
+| 6.6 | Dyslexia tutor marketplace; live local estate auctions | Marketplaces |
+| 6.3 | AI video sales role-play for one industry | Problems created by AI |
+| 6.3 | Notary and loan-signing training | Required training |
+| 6.3 | Managed meeting-room fleet | Overlooked markets |
+| ≤6.0 | Court reporting ops, funeral homes, machine-shop quoting, interviewing integrity, AI-search visibility, shadow AI, and more | Various |
+
+## Lessons from both rounds
+
+1. **Screening scores run about 3 points too high.** Every idea dropped once it faced a test designed to find reasons it fails.
+2. **Desk research has hit diminishing returns.** Public information produces public ideas that are already taken.
+3. **The $1M solo target is the binding constraint.** The survivors cap around $300–600K solo. Reaching $1M needs a hire, a partner, or a large channel.
+4. **What's left that copycats can't easily duplicate is the founder:** firsthand knowledge of how Zoom renewals work, and the agent network. Use both in direct conversations with customers, not in more research.
+
+## Next steps (2 weeks)
+
+**Option A: fee-only Zoom renewal desk** (recommended; the November–January window is open now)
+1. A 1-hour employment-lawyer review of the Zoom offer letter and confidentiality agreement. Do this first.
+2. Contact 40 IT or finance leaders at Zoom customers with renewals in the next 6 months. Pass if 8+ calls and 2 paid engagements or letters of intent at $5–15K or 20–25% of savings.
+3. Run a seat-waste check on 3 real admin exports. Pass if 15% or more of seats are idle.
+
+**Option B: Texas small-landlord tax appeals** (for the May 2027 season)
+1. Pull Harris and Dallas appraisal district data on 5–50 unit properties and check how many have no agent on record. Stop if under 30% are unrepresented.
+2. Get sponsorship or revenue-share terms from 3 Senior Property Tax Consultants, plus a legal opinion on referral fees.
+3. Have 10 agents introduce 30 investor clients. Pass if 5 or more sign letters of intent at 25–30%.
+
+## Key round-2 sources
+- Zoom master-agent program: https://investors.zoom.us/news-releases/news-release-details/zoom-introduces-referral-partner-program-master-agents-program
+- Lightyear UCaaS: https://lightyear.ai/solutions/voice/unified-communications-as-a-service-ucaas
+- Vendr Zoom data: https://www.vendr.com/marketplace/zoom
+- California non-solicit law: https://www.ebglaw.com/trade-secrets-employee-mobility/non-solicitation-agreements-are-void-in-california-or-are-they
+- Ownwell $50M raise: https://www.inman.com/2026/02/25/ownwell-raises-50m-to-grow-its-property-tax-appeal-fintech/
+- TDLR property tax consultant FAQ: https://www.tdlr.texas.gov/ptc/ptcfaq.htm
+- Harris County protest stats: https://www.harbertgroup.com/blog/1065/Texas+Property+Tax+Protest+2026%3A+How+Houston+Homeowners+Win+Reductions+At+Hcad
+- NC General Update must be live: https://regulations.justia.com/states/north-carolina/title-21/chapter-58/subchapter-h/section-0400/section-58h-0403
+- The CE Shop NC live Update at $85: https://www.theceshop.com/online-education/north-carolina/real-estate/broker/continuing-education/course/2026-2027-general-update-course-synchronous-8413-30004.html
+- Caring Transitions franchise data: https://www.bizbuysell.com/franchise-for-sale/caring-transitions/
+- RESPA and home warranty referral rule: https://www.govinfo.gov/content/pkg/FR-2010-06-25/pdf/2010-15355.pdf
+- ALTA seller impersonation survey: https://www.scotsmanguide.com/news/seller-impersonation-fraud-attempts-have-more-than-doubled-since-2024/
