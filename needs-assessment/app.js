@@ -29,6 +29,7 @@
     a.client.values ??= [];
     a.categories ??= {};
     for (const c of C.categories) a.categories[c.id] = { ...blankCategory(), ...(a.categories[c.id] || {}) };
+    a.goals ??= { selected: [], top: "", current: "", words: "", tried: "", openness: "" };
     a.wrap ??= { pain1: "", pain2: "", pain3: "", followUpDate: "", followUpTime: "", notes: "" };
     a.recs ??= {};
     a.recs.override ??= {};
@@ -67,7 +68,15 @@
     return w.followUpTime ? `${date} · ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : date;
   };
 
-  const steps = () => ["intro", "household", ...C.categories.map((c) => c.id), "wrap"];
+  // Wellness goals sit just before the vitamins/supplements section.
+  const steps = () => {
+    const cats = C.categories.map((c) => c.id);
+    const at = cats.indexOf("nutrition");
+    if (at >= 0) cats.splice(at, 0, "goals"); else cats.push("goals");
+    return ["intro", "household", ...cats, "wrap"];
+  };
+  const goalById = (id) => C.goals.find((g) => g.id === id);
+  const STEP_LABEL = { intro: ["Intro", "Intro"], household: ["Household", "Household"], goals: ["🎯", "Wellness goals"], wrap: ["Wrap-up", "Wrap-up"] };
 
   // ---------- recommendation engine ----------
   // Scores each category on dissatisfaction, frustrations (weighted by the client's own top priorities),
@@ -112,6 +121,31 @@
       if (o) { res.bucket = o; res.overridden = true; }
       return res;
     });
+
+    // Each wellness goal the client named becomes a candidate. Their #1 goal ranks highest.
+    const g = a.goals;
+    for (const gid of g.selected) {
+      const goal = goalById(gid);
+      if (!goal) continue;
+      const cat = { id: "goal:" + gid, icon: goal.icon, name: "Goal: " + goal.label, lines: goal.lines, talkingPoint: goal.talkingPoint, goal: true };
+      const res = { cat, r: { current: g.current, spend: "" }, score: 0, reasons: [], bucket: "later" };
+      if (g.openness === "no") {
+        res.bucket = "keep";
+        res.reasons.push("Named this goal but isn't open to products for it. Keep it a conversation.");
+      } else {
+        let s = 5;
+        if (g.top === gid || g.selected.length === 1) { s += 4; res.reasons.push("Their #1 wellness goal"); } else res.reasons.push("A goal they named");
+        if (g.words.trim()) res.reasons.push(`In their words: “${g.words.trim()}”`);
+        if (g.tried.trim()) { s += 1; res.reasons.push(`Tried before: ${g.tried.trim()}`); }
+        if (g.openness === "yes") { s += 3; res.reasons.push("Open to products that support this"); }
+        else if (g.openness === "maybe") { s += 1; res.reasons.push("Maybe open to products"); }
+        res.score = s;
+        res.bucket = s >= 8 ? "focus" : "later";
+      }
+      const o = a.recs.override[cat.id];
+      if (o) { res.bucket = o; res.overridden = true; }
+      results.push(res);
+    }
 
     // Cap auto-focus at 3. Fewer, stronger recommendations beat a long list.
     const autoFocus = results.filter((x) => x.bucket === "focus" && !x.overridden).sort((x, y) => y.score - x.score);
@@ -184,8 +218,7 @@
     const s = steps();
     const pct = Math.round((idx / (s.length)) * 100);
     const labels = s.map((id, i) => {
-      const label = id === "intro" ? "Intro" : id === "household" ? "Household" : id === "wrap" ? "Wrap-up" : catById(id).icon;
-      const title = id === "intro" ? "Intro" : id === "household" ? "Household" : id === "wrap" ? "Wrap-up" : catById(id).name;
+      const [label, title] = STEP_LABEL[id] ?? [catById(id).icon, catById(id).name];
       const done = i < idx ? "done" : i === idx ? "current" : "";
       const locked = i > 0 && !consentOk(a);
       return locked
@@ -307,6 +340,54 @@
       <button class="btn ghost" data-action="skip" data-cat="${c.id}">Not relevant, skip</button>`;
   }
 
+  function viewGoals(a) {
+    const g = a.goals;
+    const chips = C.goals.map((x) => {
+      const on = g.selected.includes(x.id);
+      return `<button type="button" class="chip ${on ? "on" : ""}" data-toggle="goals.selected" data-val="${x.id}" aria-pressed="${on}">${x.icon} ${esc(x.label)}</button>`;
+    }).join("");
+    const topChips = g.selected.map((id) => {
+      const x = goalById(id);
+      if (!x) return "";
+      const on = g.top === id;
+      return `<button type="button" class="chip ${on ? "on" : ""}" data-set="goals.top" data-val="${id}" aria-pressed="${on}">${on ? "⭐ " : ""}${esc(x.label)}</button>`;
+    }).join("");
+    const open = [["yes", "Yes"], ["maybe", "Maybe"], ["no", "No, just habits"]].map(([v, l]) =>
+      `<button type="button" class="chip ${g.openness === v ? "on" : ""}" data-set="goals.openness" data-val="${v}" aria-pressed="${g.openness === v}">${l}</button>`
+    ).join("");
+    return `
+      <h1>🎯 Wellness goals</h1>
+      <div class="caution">⚠️ Ask about <strong>goals</strong>, not medical conditions. If they bring up a diagnosis, medication, pregnancy, or ongoing symptoms, don't write it down. Say: <em>"That's a great question for your doctor. Check with them before adding anything new."</em></div>
+      <div class="card prompts">
+        <div class="label">Ask</div>
+        <ul>
+          <li>"What are some of your health goals right now? More energy, better sleep, managing your weight, anything like that?"</li>
+          <li>"Which one matters most to you?"</li>
+          <li>"What are you doing for it now? Have you tried anything that didn't work?"</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="label">Goals they mention</div>
+        <div class="chips">${chips}</div>
+        ${g.selected.length > 1 ? `<div class="label">Which matters most?</div><div class="chips">${topChips}</div>` : ""}
+        <label>In their words
+          <input type="text" data-path="goals.words" value="${esc(g.words)}" placeholder="e.g. &quot;I crash every afternoon around 3&quot;">
+        </label>
+      </div>
+      <div class="card">
+        <label>What they're doing for it now
+          <input type="text" data-path="goals.current" value="${esc(g.current)}" placeholder="e.g. 3 coffees a day, walks after dinner">
+        </label>
+        <label>Tried before that didn't work
+          <input type="text" data-path="goals.tried" value="${esc(g.tried)}" placeholder="e.g. melatonin made them groggy">
+        </label>
+      </div>
+      <div class="card">
+        <div class="label">Open to products that support these goals?</div>
+        <div class="chips">${open}</div>
+      </div>`;
+  }
+
   function viewWrap(a) {
     const w = a.wrap;
     return `
@@ -340,7 +421,7 @@
     idx = Math.max(0, Math.min(idx, s.length - 1));
     if (idx > 0 && !consentOk(a)) idx = 0;
     const id = s[idx];
-    const body = id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : viewCategory(a, catById(id));
+    const body = id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : id === "goals" ? viewGoals(a) : viewCategory(a, catById(id));
     const last = idx === s.length - 1;
     const blocked = id === "intro" && !consentOk(a);
     return `
@@ -413,6 +494,7 @@
       </div>
 
       ${pains.length ? `<section class="card"><div class="label">In their words, what they want better</div><ol class="pains">${pains.map((p) => `<li>${esc(p)}</li>`).join("")}</ol></section>` : ""}
+      ${a.goals.selected.length ? `<p class="small"><span class="muted">Wellness goals:</span> ${a.goals.selected.map((id) => goalById(id)).filter(Boolean).map((x) => (a.goals.top === x.id ? "⭐ " : "") + esc(x.label)).join(", ")}</p>` : ""}
       ${cl.sensitivities.length ? `<p class="small"><span class="muted">Preferences:</span> ${cl.sensitivities.map(esc).join(", ")}</p>` : ""}
 
       <h2>Focus for the follow-up <span class="muted">(${focus.length})</span></h2>
@@ -511,6 +593,10 @@
       const arr = getPath(a, el.dataset.toggle) || [];
       const v = el.dataset.val;
       setPath(a, el.dataset.toggle, arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+      if (el.dataset.toggle === "goals.selected") {
+        const sel = a.goals.selected;
+        if (!sel.includes(a.goals.top)) a.goals.top = "";
+      }
       touch(a); render(); return;
     }
     if (el.dataset.rank && a) {
@@ -588,11 +674,12 @@
       if (/^[=+\-@]/.test(s)) s = "'" + s; // block spreadsheet formula injection
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const head = ["Name", "Phone", "Email", "Status", "Assessed", "Follow-up OK", "Follow-up date", "Follow-up time", "Top priorities", "Focus categories", "Pain points", "Reported monthly spend"];
+    const head = ["Name", "Phone", "Email", "Status", "Assessed", "Follow-up OK", "Follow-up date", "Follow-up time", "Top priorities", "Wellness goals", "Focus categories", "Pain points", "Reported monthly spend"];
     const rows = Object.values(db).map(normalize).map((a) => [
       a.client.name, a.client.phone, a.client.email, a.status, a.createdAt.slice(0, 10),
       a.consent.followUpOk ? "Yes" : "No", a.wrap.followUpDate, a.wrap.followUpTime,
       a.client.values.map(valueLabel).join("; "),
+      a.goals.selected.map((id) => goalById(id)?.label ?? id).join("; "),
       recommend(a).filter((x) => x.bucket === "focus").map((x) => x.cat.name).join("; "),
       [a.wrap.pain1, a.wrap.pain2, a.wrap.pain3].filter(Boolean).join("; "),
       monthlySpend(a) || "",

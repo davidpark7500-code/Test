@@ -20,15 +20,57 @@ window.CATALOG = {
     "Avoids certain ingredients (see notes)",
   ],
 
+  // Wellness goals step. Ask about goals, not medical conditions.
+  // "lines" are where to look in the current wellness catalog. Check them, and only use the
+  // support statements printed in the official catalog for your market.
+  goals: [
+    { id: "energy", label: "More energy", icon: "⚡",
+      lines: ["Nutrilite™ energy & focus products", "XS™ energy drinks"],
+      talkingPoint: "Ask about sleep, water, and meals first. Energy goals often come from those. Use only the catalog's support wording." },
+    { id: "sleep", label: "Better sleep", icon: "🌙",
+      lines: ["Nutrilite™ sleep products"],
+      talkingPoint: "Position as supporting occasional sleeplessness only. Ongoing sleep problems are for their doctor." },
+    { id: "weight", label: "Weight management", icon: "⚖️",
+      lines: ["Nutrilite™ weight management products", "Nutrilite™ protein"],
+      talkingPoint: "Pair products with habits (meals, protein, movement). Never promise pounds or timelines." },
+    { id: "stress", label: "Less stress / better mood", icon: "🧘",
+      lines: ["Nutrilite™ stress & mood products"],
+      talkingPoint: "Use 'occasional stress' wording only. Anything beyond that, refer to a professional." },
+    { id: "fitness", label: "Fitness & recovery", icon: "🏋️",
+      lines: ["XS™ sports nutrition", "Nutrilite™ protein"],
+      talkingPoint: "Match their actual training. Don't upsell a full stack to someone who walks twice a week." },
+    { id: "gaps", label: "Fill nutrition gaps / eat healthier", icon: "🥦",
+      lines: ["Nutrilite™ multivitamins & daily packs"],
+      talkingPoint: "Start with one foundational product. Daily packs suit people who want fewer bottles." },
+    { id: "immune", label: "Immune support", icon: "🛡️",
+      lines: ["Nutrilite™ immunity products"],
+      talkingPoint: "Use support statements only. Never imply it prevents illness." },
+    { id: "digestive", label: "Digestive health", icon: "🌿",
+      lines: ["Nutrilite™ digestive / probiotic products"],
+      talkingPoint: "Persistent digestive symptoms are for their doctor." },
+    { id: "heart", label: "Heart health", icon: "❤️",
+      lines: ["Nutrilite™ heart health products (e.g. omega-3)"],
+      talkingPoint: "If they mention a heart condition or medication, stop and refer them to their doctor before suggesting anything." },
+    { id: "aging", label: "Healthy aging / joints / eyes", icon: "🌅",
+      lines: ["Nutrilite™ joint, eye & healthy-aging products"],
+      talkingPoint: "Focus on the one area they named, not a full regimen." },
+    { id: "beauty", label: "Skin, hair & nails from within", icon: "💅",
+      lines: ["Nutrilite™ beauty-from-within products", "Artistry™ skin care"],
+      talkingPoint: "Combine with the skin care section's answers." },
+    { id: "kids", label: "Kids' nutrition", icon: "🧒",
+      lines: ["Nutrilite™ kids products"],
+      talkingPoint: "Talk with the parent about the kids' nutrition. Never pressure on children's health." },
+  ],
+
   categories: [
     {
       id: "home",
       name: "Home cleaning",
       icon: "🧽",
       prompts: [
-        "What do you use on kitchen counters and bathrooms?",
-        "Anything separate for glass, floors, or tough grease?",
-        "Where do you usually buy it, and how often?",
+        "What do you currently use to clean your kitchen and bathrooms?",
+        "Do you have separate products for glass, floors, or tough grease?",
+        "Where do you usually buy them, and how often?",
       ],
       frustrations: [
         { id: "too-many", label: "Too many different bottles", values: ["convenience", "eco"] },
@@ -46,7 +88,7 @@ window.CATALOG = {
       name: "Laundry",
       icon: "🧺",
       prompts: [
-        "What detergent and softener do you use?",
+        "What do you currently use for your laundry detergent? Softener or dryer sheets?",
         "How many loads a week, roughly?",
         "Any problems with stains, odors, or skin irritation from clothes?",
       ],
@@ -65,7 +107,7 @@ window.CATALOG = {
       name: "Dishes",
       icon: "🍽️",
       prompts: [
-        "Dishwasher, hand-washing, or both? What do you use?",
+        "What do you currently use for dishes: dishwasher, hand-washing, or both?",
         "Happy with how the dishes come out?",
       ],
       frustrations: [
@@ -82,7 +124,7 @@ window.CATALOG = {
       name: "Personal care (body, hair, oral)",
       icon: "🧴",
       prompts: [
-        "What shampoo, body wash, deodorant, and toothpaste does the household use?",
+        "What do you currently use for shampoo, body wash, deodorant, and toothpaste?",
         "Does everyone use the same thing, or does each person have their own?",
       ],
       frustrations: [
@@ -115,10 +157,11 @@ window.CATALOG = {
     },
     {
       id: "nutrition",
-      name: "Nutrition & wellness",
+      name: "Vitamins, supplements & drinks",
       icon: "🥗",
       prompts: [
-        "Do you take any vitamins or supplements now? Which ones?",
+        "What vitamins or supplements do you currently take, if any?",
+        "Any protein shakes, energy drinks, or pre-workout?",
         "What do you like or dislike about them: taste, pill size, cost, remembering to take them?",
         "Where do you buy them?",
       ],
@@ -128,8 +171,9 @@ window.CATALOG = {
         { id: "cost", label: "Costs add up", values: ["price"] },
         { id: "quality", label: "Unsure about quality or sourcing", values: ["ingredients", "performance"] },
         { id: "toomany", label: "Too many bottles", values: ["convenience"] },
+        { id: "energydrinks", label: "Relies on coffee / sugary energy drinks", values: ["ingredients", "price"] },
       ],
-      lines: ["Nutrilite™"],
+      lines: ["Nutrilite™ supplements", "XS™ energy drinks & sports nutrition"],
       talkingPoint: "Talk about sourcing, quality, and convenience. Never claim a product treats or prevents a condition.",
       caution: "Ask about preferences, not health conditions. Don't record diagnoses or medications. Health questions go to their doctor.",
     },
