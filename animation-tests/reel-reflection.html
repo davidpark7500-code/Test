@@ -1,0 +1,449 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Reflection</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;max-height:100vh}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// "Reflection" — 9:16 surreal short. Raymarched two-world scene + ember particles + synthesized score.
+const q = new URLSearchParams(location.search), W = +(q.get('w') || 1080), H = +(q.get('h') || 1920);
+const DUR = 31.5, SS = +(q.get('ss') || 1);
+const out = document.getElementById('c'); out.width = W; out.height = H;
+const ctx = out.getContext('2d');
+const gc = document.createElement('canvas'); gc.width = W; gc.height = H;
+const gl = gc.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false, alpha: false });
+
+// ---------------- timing helpers ----------------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const sm = (a, b, x) => { const u = clamp((x - a) / (b - a)); return u * u * (3 - 2 * u); };
+const eio = u => (u = clamp(u), u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+const lerp = (a, b, u) => a + (b - a) * u;
+const lv = (a, b, u) => a.map((v, i) => lerp(v, b[i], u));
+const T_CONTACT = 8.3, C = [0.55, 0.0, 0.17];
+
+// ---------------- poses (2D profile, facing +x; z = side offset) ----------------
+const STAND = { hx: -0.02, hy: 0.95, sp: 0.03, hd: 0.0, fN: 0.10, fF: -0.12, aN: [0.06, 0.14], aF: [-0.05, 0.05], reach: 0 };
+const CROUCH = { hx: -0.12, hy: 0.42, sp: 1.15, hd: 0.35, fN: 0.13, fF: -0.16, aN: [0.9, 1.2], aF: [0.6, 1.6], reach: 1 };
+const mixPose = (a, b, u) => { const o = {}; for (const k in a) o[k] = Array.isArray(a[k]) ? lv(a[k], b[k], u) : lerp(a[k], b[k], u); return o; };
+function ik(r, t, l1, l2, s) {
+  let dx = t[0] - r[0], dy = t[1] - r[1], d = Math.hypot(dx, dy);
+  d = clamp(d, Math.abs(l1 - l2) + 1e-4, l1 + l2 - 1e-4);
+  const a = Math.acos(clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1)), b = Math.atan2(dy, dx) + s * a;
+  const m = [r[0] + l1 * Math.cos(b), r[1] + l1 * Math.sin(b)];
+  const e = Math.atan2(t[1] - m[1], t[0] - m[0]);
+  return [m, [m[0] + l2 * Math.cos(e), m[1] + l2 * Math.sin(e)]];
+}
+const LT = 0.46, LS = 0.46, LU = 0.33, LF = 0.31;
+function joints(P) {
+  const hip = [P.hx, P.hy], dir = [Math.sin(P.sp), Math.cos(P.sp)];
+  const neck = [hip[0] + 0.5 * dir[0], hip[1] + 0.5 * dir[1]];
+  const chest = [hip[0] + 0.40 * dir[0], hip[1] + 0.40 * dir[1]];
+  const sh = [hip[0] + 0.44 * dir[0] - 0.02, hip[1] + 0.44 * dir[1]];
+  const ha = P.sp * 0.6 + P.hd;
+  const head = [neck[0] + 0.15 * Math.sin(ha), neck[1] + 0.15 * Math.cos(ha)];
+  const nose = [head[0] + 0.088 * Math.cos(ha), head[1] - 0.088 * Math.sin(ha) - 0.012];
+  const leg = (fx) => { const foot = [fx, 0.065]; const [k] = ik(hip, foot, LT, LS, 1); return [k, foot, [fx + 0.12, 0.035]]; };
+  const [kN, ftN, toN] = leg(P.fN), [kF, ftF, toF] = leg(P.fF);
+  const fk = (a) => { const e = [sh[0] + LU * Math.sin(a[0]), sh[1] - LU * Math.cos(a[0])]; return [e, [e[0] + LF * Math.sin(a[1]), e[1] - LF * Math.cos(a[1])]]; };
+  let [eN, hN] = fk(P.aN); const [eF, hF] = fk(P.aF);
+  if (P.reach > 0) { const [ie, ih] = ik(sh, [C[0], 0.05], LU, LF, -1); eN = lv(eN, ie, P.reach); hN = lv(hN, ih, P.reach); }
+  const z = (p, zz) => [p[0], p[1], zz];
+  return [z(hip, 0), z(neck, 0), z(head, 0), z(nose, 0), z(hip, 0.09), z(kN, 0.09), z(ftN, 0.09), z(toN, 0.09),
+    z(hip, -0.09), z(kF, -0.09), z(ftF, -0.09), z(toF, -0.09), z(sh, 0.17), z(eN, 0.17), z(hN, 0.17), z(sh, -0.17), z(eF, -0.17), z(hF, -0.17), z(chest, 0)];
+}
+// A (top world) and B (mirror world) choreography
+function poseA(t) {
+  let P = STAND;
+  P = mixPose(P, { ...STAND, hd: 0.5 }, eio((t - 2.7) / 0.9));
+  P = mixPose(P, CROUCH, eio((t - 4.5) / 3.8));
+  P = { ...P, reach: eio((t - 6.3) / 2.0) * (1 - eio((t - 19.6) / 1.2)) };
+  if (t > 19.4) P = mixPose(P, { ...STAND, hd: 0.0 }, eio((t - 19.6) / 2.6));
+  if (t > 22) P = mixPose(P, { ...STAND, hd: -0.55 }, eio((t - 22.2) / 2.2));
+  P.hy += 0.006 * Math.sin(t * 1.7);
+  return P;
+}
+function poseB(t) {
+  let P = STAND;
+  P = mixPose(P, { ...STAND, hd: 0.5, aN: [0.45, 0.7] }, eio((t - 1.1) / 1.2));   // it moves first
+  P = mixPose(P, CROUCH, eio((t - 4.0) / 3.6));
+  P = { ...P, reach: eio((t - 5.8) / 2.1) };
+  P.hy += 0.006 * Math.sin(t * 1.7 + 0.8);
+  return P;
+}
+const ER0 = 1.25, eroR = t => t < 14.2 ? 9 : ER0 * (1 - clamp((t - 14.2) / 4.8));   // dissolve front (feet first, hand last)
+const contactI = t => sm(7.5, 8.3, t) * (0.7 + 2.2 * Math.exp(-Math.max(0, t - 8.3) * 2.2)) * (1 - sm(18.6, 20.5, t));
+const mirror = t => sm(20.2, 23.8, t);
+
+// ---------------- camera ----------------
+const KT = [0, 9.3, 12.8, 17.6, 21.0, DUR];
+const KRO = [[0.15, 0.06, 6.9], [0.25, 0.06, 5.4], [0.3, -0.72, 4.7], [0.3, -0.62, 4.4], [0.2, 1.0, 7.6], [0.2, 1.35, 9.2]];
+const KTA = [[0.3, 0.0, 0], [0.32, 0.0, 0], [0.32, -0.85, 0], [0.32, -0.62, 0], [0.1, 2.2, -2], [0.1, 3.3, -2]];
+const KRL = [0, 0, Math.PI, Math.PI, 2 * Math.PI, 2 * Math.PI];
+function cam(t) {
+  let i = 0; while (i < KT.length - 2 && t > KT[i + 1]) i++;
+  const u = eio((t - KT[i]) / (KT[i + 1] - KT[i]));
+  const ro = lv(KRO[i], KRO[i + 1], u), ta = lv(KTA[i], KTA[i + 1], u), rl = lerp(KRL[i], KRL[i + 1], u);
+  const sub = (a, b) => a.map((v, k) => v - b[k]), nrm = a => { const l = Math.hypot(...a); return a.map(v => v / l); };
+  const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const ww = nrm(sub(ta, ro)); let uu = nrm(cr(ww, [0, 1, 0])); let vv = cr(uu, ww);
+  const c = Math.cos(rl), s = Math.sin(rl);
+  const u2 = uu.map((v, k) => c * v + s * vv[k]), v2 = vv.map((v, k) => -s * uu[k] + c * v);
+  return { ro, uu: u2, vv: v2, ww };
+}
+
+// ---------------- raymarch shader ----------------
+const VS = `#version 300 es
+in vec2 p; void main(){ gl_Position=vec4(p,0.,1.); }`;
+const FS = `#version 300 es
+precision highp float;
+uniform vec2 R, J; uniform float T, ERO, CI, MIR, STARS;
+uniform vec3 ro_, uu_, vv_, ww_, C, bAc, bAh, bBc, bBh;
+uniform vec3 JA[19]; uniform vec3 JB[19];
+out vec4 o;
+#define F 1.9
+float h1(vec3 p){ p=fract(p*.3183099+.1); p*=17.; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float n3(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.-2.*f);
+  return mix(mix(mix(h1(i),h1(i+vec3(1,0,0)),f.x),mix(h1(i+vec3(0,1,0)),h1(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(h1(i+vec3(0,0,1)),h1(i+vec3(1,0,1)),f.x),mix(h1(i+vec3(0,1,1)),h1(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float smin(float a,float b,float k){ float h=clamp(.5+.5*(b-a)/k,0.,1.); return mix(b,a,h)-k*h*(1.-h); }
+float cap(vec3 p, vec3 a, vec3 b, float r){ vec3 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.); return length(pa-ba*h)-r; }
+float rcone(vec3 p, vec3 a, vec3 b, float r1, float r2){
+  vec3 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.); return length(pa-ba*h)-mix(r1,r2,h); }
+float box(vec3 p, vec3 b){ vec3 q=abs(p)-b; return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.); }
+#define FIG(NAME, Jx) float NAME(vec3 p){ \
+  float d = rcone(p, Jx[0], Jx[18], .115, .14); \
+  d = smin(d, cap(p, Jx[1], Jx[2], .045), .03); \
+  d = smin(d, smin(length(p-Jx[2])-.105, length(p-Jx[3])-.03, .03), .03); \
+  d = smin(d, rcone(p, Jx[4], Jx[5], .078, .056), .04); d = smin(d, rcone(p, Jx[5], Jx[6], .054, .04), .02); d = smin(d, cap(p, Jx[6], Jx[7], .036), .02); \
+  d = smin(d, rcone(p, Jx[8], Jx[9], .078, .056), .04); d = smin(d, rcone(p, Jx[9], Jx[10], .054, .04), .02); d = smin(d, cap(p, Jx[10], Jx[11], .036), .02); \
+  d = smin(d, rcone(p, Jx[12], Jx[13], .052, .04), .04); d = smin(d, rcone(p, Jx[13], Jx[14], .039, .03), .02); d = smin(d, length(p-Jx[14])-.045, .02); \
+  d = smin(d, rcone(p, Jx[15], Jx[16], .052, .04), .04); d = smin(d, rcone(p, Jx[16], Jx[17], .039, .03), .02); d = smin(d, length(p-Jx[17])-.045, .02); \
+  return d; }
+FIG(figA, JA)
+FIG(figB, JB)
+float worldA(vec3 p){ float b=box(p-bAc,bAh); return b>.3 ? b : figA(p); }
+float worldB(vec3 p){
+  float b=box(p-bBc,bBh); if(b>.3) return b;
+  float d=figB(p);
+  if(ERO<5.) d = max(d, length(p-C) - ERO + (n3(p*9.+T*.5)-.5)*.16);
+  return d; }
+float world(vec3 p, float w){ return w>0. ? worldA(p) : worldB(p); }
+vec3 nrm(vec3 p, float w){ const vec2 e=vec2(1,-1)*.0015;
+  return normalize(e.xyy*world(p+e.xyy,w)+e.yyx*world(p+e.yyx,w)+e.yxy*world(p+e.yxy,w)+e.xxx*world(p+e.xxx,w)); }
+// march inside one world; never crosses the membrane (y=0)
+float march(vec3 ro, vec3 rd, float w){
+  float tmax = 30.; if(rd.y*w < 0.) tmax = min(tmax, -ro.y/rd.y);
+  float t = 0.;
+  for(int i=0;i<110;i++){ float h = world(ro+rd*t, w); if(h<.0012) return t; t += h*.9; if(t>tmax) break; }
+  return -1.;
+}
+// ---- skies ----
+vec3 skyA(vec3 rd){       // night world
+  float y = max(rd.y,0.);
+  vec3 c = mix(vec3(.05,.07,.15), vec3(.004,.007,.022), pow(y,.5));
+  c += vec3(.10,.12,.22)*exp(-y*14.);
+  vec3 md = normalize(vec3(0.,.2,-1.)); float a = acos(clamp(dot(rd,md),-1.,1.)), MR=.14;
+  if(a<MR){ vec3 u=normalize(cross(md,vec3(0,1,0))), v=cross(u,md); vec2 m=vec2(dot(rd,u),dot(rd,v))/MR*6.;
+    float cr = n3(vec3(m,1.))*.55+n3(vec3(m*2.3,4.))*.3+n3(vec3(m*6.,9.))*.15;
+    float limb = sqrt(1.-pow(a/MR,2.));
+    c = mix(c, vec3(.9,.92,1.)*(0.62+.45*cr)*(.5+.5*limb)*.72, smoothstep(MR,MR-.003,a)); }
+  c += vec3(.3,.4,.75)*exp(-max(a-MR,0.)*10.)*.14;
+  vec3 sp = rd*220.; vec3 ci=floor(sp); float hs=h1(ci);
+  float th = mix(.992,.975,STARS);
+  if(hs>th){ vec3 sc = ci+.5+(vec3(h1(ci+3.),h1(ci+7.),h1(ci+11.))-.5)*.6; float s=exp(-dot(sp-sc,sp-sc)*9.);
+    c += s*mix(vec3(.7,.8,1.), vec3(1.,.8,.55), STARS)*(.5+.8*h1(ci+5.))*(.5+.5*sin(T*2.+hs*90.)); }
+  return c;
+}
+vec3 skyB(vec3 rd){       // morning world (its "up" is -y)
+  float y = max(-rd.y,0.);
+  vec3 c = mix(vec3(.5,.24,.12), vec3(.08,.08,.18), pow(y,.42));
+  c += vec3(.8,.4,.2)*exp(-y*10.)*.3;
+  vec3 sd = normalize(vec3(0.,-.2,-1.)); float a = acos(clamp(dot(rd,sd),-1.,1.)), SR=.12;
+  c = mix(c, vec3(2.2,1.4,.8), smoothstep(SR,SR-.004,a));
+  c += vec3(1.,.5,.22)*(exp(-max(a-SR,0.)*9.)*.35 + exp(-max(a-SR,0.)*2.5)*.1);
+  return c;
+}
+vec3 sky(vec3 rd, float w){ return w>0. ? skyA(rd) : skyB(rd); }
+// ---- membrane ripples ----
+float ht(vec2 x){
+  float h = .006*(sin(x.x*2.7+T*1.2)+sin(x.y*2.1-T*.9+x.x*.6)) + .003*sin(x.x*7.+x.y*5.-T*2.);
+  float tau = T - ${T_CONTACT.toFixed(2)};
+  if(tau>0.){ float r = length(x-C.xz); float front = tau*1.5+.15;
+    h += .03*exp(-tau*.35)*exp(-r*.5)*sin(r*16.-tau*8.)*smoothstep(front, front-.4, r); }
+  float tb = T - 1.1;   // tiny disturbance when the reflection first moves
+  if(tb>0.){ float r = length(x-vec2(.2,.17)); float front=tb*1.2; h += .012*exp(-tb*.8)*sin(r*20.-tb*9.)*smoothstep(front,front-.3,r); }
+  return h;
+}
+vec3 mnorm(vec2 x){ const float e=.01; return normalize(vec3(-(ht(x+vec2(e,0))-ht(x-vec2(e,0)))/(2.*e), 1., -(ht(x+vec2(0,e))-ht(x-vec2(0,e)))/(2.*e))); }
+// ---- shading ----
+vec3 shadeFig(vec3 p, vec3 rd, float w){
+  vec3 n = nrm(p,w);
+  vec3 rimC = w>0. ? vec3(.45,.55,.9) : vec3(.9,.55,.3);
+  vec3 L = w>0. ? normalize(vec3(0.,.2,-1.)) : normalize(vec3(0.,-.2,-1.));
+  float rim = pow(1.-clamp(dot(n,-rd),0.,1.), 3.);
+  float back = pow(clamp(dot(n,L)*.5+.5,0.,1.), 4.);
+  vec3 c = vec3(.012,.013,.02) + rimC*(rim*.9*(.3+back) + back*.18);
+  c += sky(n,w)*.02;
+  vec3 lc = C-p; float ld = length(lc);
+  c += vec3(1.,.82,.6)*CI*max(dot(n,lc/ld),0.)*1.4/(1.+ld*ld*10.);
+  if(w<0. && ERO<5.){ float e = smoothstep(.16,0.,abs(length(p-C)-ERO)); c += vec3(1.,.7,.35)*e*2.5; }
+  return c;
+}
+vec3 trace1(vec3 ro, vec3 rd, float w){ float t = march(ro,rd,w); return t<0. ? sky(rd,w) : shadeFig(ro+rd*t,rd,w); }
+vec3 glow(vec3 ro, vec3 rd){
+  float tc = max(dot(C-ro,rd),0.); float d = length(ro+rd*tc-C);
+  return vec3(1.,.78,.5)*CI*(.012/(d*d+.004) + .06*exp(-d*3.));
+}
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
+void main(){
+  vec2 uv = (2.*(gl_FragCoord.xy+J)-R)/R.y;
+  vec3 ro = ro_, rd = normalize(uv.x*uu_ + uv.y*vv_ + F*ww_);
+  float w = ro.y >= 0. ? 1. : -1.;
+  vec3 col;
+  float t = march(ro,rd,w);
+  bool hitsPlane = rd.y*w < 0.;
+  float tp = hitsPlane ? -ro.y/rd.y : 1e9;
+  if(t>0.) col = shadeFig(ro+rd*t,rd,w);
+  else if(hitsPlane && tp<60.){
+    vec3 p = ro+rd*tp; vec3 n = mnorm(p.xz); if(w<0.) n.y = -n.y;
+    float fr = pow(1.-abs(dot(n,rd)),5.);
+    vec3 rr;
+    float nearK = smoothstep(.05,.8,tp);   // calm the surface right at the lens so crossing it doesn't streak
+    n = normalize(mix(vec3(0.,n.y>0.?1.:-1.,0.), n, nearK)); rr = reflect(rd,n);
+    vec3 tr = normalize(rd + vec3(n.x,0.,n.z)*1.4);
+    float rw = mix(.05+.3*fr, .82, MIR), tw = (1.-MIR)*(.93-.3*fr);
+    vec3 refl = trace1(p+n*.002*w, rr, w);
+    vec3 tran = tw>.002 ? trace1(p-vec3(0,.002,0)*w, tr, -w) : vec3(0.);
+    col = refl*rw + tran*tw;
+    // faint luminous membrane line + distance haze toward the horizon
+    col += mix(vec3(.15,.2,.35), vec3(.6,.4,.25), .5+.5*n.x)*.04*exp(-tp*.05);
+    col = mix(col, w>0. ? vec3(.05,.06,.13) : vec3(.4,.2,.1), 1.-exp(-tp*tp*.0006));
+  } else col = sky(rd,w);
+  col += glow(ro,rd);
+  col = aces(col*.95);
+  col = pow(col, vec3(1./2.2));
+  vec2 q = gl_FragCoord.xy/R; col *= .55+.45*pow(16.*q.x*q.y*(1.-q.x)*(1.-q.y),.25);
+  o = vec4(col,1.);
+}`;
+
+// ---------------- embers / stars (particle pass) ----------------
+const PVS = `#version 300 es
+precision highp float;
+in vec3 s, e; in vec4 r; in float k;
+uniform float T, asp, px; uniform vec3 ro_, uu_, vv_, ww_, C;
+out vec3 vc; out float va;
+float eo(float x){ x=clamp(x,0.,1.); return 1.-pow(1.-x,2.6); }
+vec3 bez(vec3 a, vec3 b, vec3 c, vec3 d, float u){ float v=1.-u; return v*v*v*a+3.*v*v*u*b+3.*v*u*u*c+u*u*u*d; }
+void main(){
+  vec3 p; float a = 0., sz = 1.; vc = vec3(1.,.72,.4);
+  if(k < .5){
+    // dissolve ember: born when the erosion front passes it, rises through the membrane, settles as a star
+    float tb = 14.2 + 4.8*(1. - length(s-C)/1.25) + r.x*.25;
+    float D = 3.6 + r.y*1.8, u = (T-tb)/D;
+    vec3 P1 = vec3(mix(C.x,s.x,.4), s.y*.25, s.z*.5), P2 = vec3(e.x*.25, e.y*.45+1.2, e.z*.3);
+    float ue = eo(u);
+    p = bez(s, P1, P2, e, ue);
+    p += vec3(sin(T*1.3+r.z*20.), cos(T*1.1+r.w*20.), sin(T*.9+r.x*20.))*.25*sin(3.14159*clamp(u,0.,1.));
+    a = step(0.,u) * mix(1.6, .55+.45*sin(T*2.2+r.z*40.), smoothstep(.75,1.,u));
+    sz = mix(2.6, 1.5+r.w*1.3, smoothstep(.6,1.,u));
+    vc = mix(vec3(1.,.62,.3), vec3(1.,.88,.7), smoothstep(.5,1.,u));
+  } else {
+    // contact sparks skating out along the membrane
+    float tau = T - ${T_CONTACT.toFixed(2)} - r.x*.12;
+    float ang = r.y*6.2832, sp = .6 + r.z*1.6;
+    p = C + vec3(cos(ang), (r.w-.5)*.25, sin(ang))*sp*(1.-exp(-tau*2.5));
+    a = step(0.,tau)*exp(-tau*1.6)*1.8; sz = 1.6;
+  }
+  vec3 v = p - ro_; float z = dot(v,ww_);
+  gl_Position = vec4(dot(v,uu_)*1.9/z/asp, dot(v,vv_)*1.9/z, 0., 1.);
+  if(z < .1) gl_Position = vec4(9.,9.,9.,1.);
+  gl_PointSize = px*sz*clamp(6./z,.4,3.);
+  va = a;
+}`;
+const PFS = `#version 300 es
+precision highp float; in vec3 vc; in float va; out vec4 o;
+void main(){ vec2 d=gl_PointCoord-.5; float g=exp(-dot(d,d)*16.); o=vec4(vc*g*va*1.1,1.); }`;
+
+function compile(t, s) { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x);
+  if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; }
+function program(vs, fs) { const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name.replace('[0]', ''); u[nm] = gl.getUniformLocation(p, nm); }
+  return { p, u }; }
+const RM = program(VS, FS), PT = program(PVS, PFS);
+
+const vaoQ = gl.createVertexArray(); gl.bindVertexArray(vaoQ);
+const qb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, qb);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+// particles: embers sampled on B's final (crouched, mirrored) body + contact sparks
+let sd = 99; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+const NE = 7000, NS = 500, NP = NE + NS;
+const S = new Float32Array(NP * 3), E = new Float32Array(NP * 3), RN = new Float32Array(NP * 4), K = new Float32Array(NP);
+{
+  const jb = joints(CROUCH).map(([x, y, z]) => [x, -y, z]);
+  const segs = [[0, 18, .12], [1, 2, .05], [2, 2, .1], [4, 5, .07], [5, 6, .05], [8, 9, .07], [9, 10, .05], [12, 13, .05], [13, 14, .035], [15, 16, .05], [16, 17, .035]];
+  for (let i = 0; i < NP; i++) {
+    if (i < NE) {
+      const g = segs[(rnd() * segs.length) | 0], a = jb[g[0]], b = jb[g[1]], u = rnd();
+      const th = rnd() * 6.283, ph = Math.acos(2 * rnd() - 1), rr = g[2] * Math.cbrt(rnd());
+      for (let c = 0; c < 3; c++) S[i * 3 + c] = a[c] + (b[c] - a[c]) * u + rr * [Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)][c];
+      const ez = -3 - rnd() * 16;
+      E[i * 3] = (rnd() - 0.5) * (7 + Math.abs(ez) * 0.9); E[i * 3 + 1] = 2.2 + Math.pow(rnd(), 0.7) * (5 + Math.abs(ez) * 0.75); E[i * 3 + 2] = ez;
+    } else K[i] = 1;
+    for (let c = 0; c < 4; c++) RN[i * 4 + c] = rnd();
+  }
+}
+const vaoP = gl.createVertexArray(); gl.bindVertexArray(vaoP);
+const att = (name, data, n) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  const l = gl.getAttribLocation(PT.p, name); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, 0, 0); };
+att('s', S, 3); att('e', E, 3); att('r', RN, 4); att('k', K, 1);
+
+// ---------------- captions ----------------
+const CAPS = [[0.2, 3.4, 'my reflection stopped copying me.'], [4.3, 7.7, 'it had been reaching for me the whole time.'],
+  [11.9, 14.6, 'on its side, it was always morning.'], [15.1, 17.9, "it couldn't stay."], [18.3, 21.2, 'so it gave me all of its light.'],
+  [22.2, 25.4, 'now it just copies me again.'], [26.1, 31.0, 'but the sky is never dark anymore.']];
+function wrap(text, maxW) { const words = text.split(' '), lines = [[]]; for (const w of words) { const L = lines[lines.length - 1]; if (L.length && ctx.measureText([...L, w].join(' ')).width > maxW) lines.push([w]); else L.push(w); } return lines; }
+function wrapBal(text, maxW) { if (ctx.measureText(text).width <= maxW) return [text.split(' ')]; const w = text.split(' '); let best = null;
+  for (let i = 1; i < w.length; i++) { const a = ctx.measureText(w.slice(0, i).join(' ')).width, b = ctx.measureText(w.slice(i).join(' ')).width; const s = Math.max(a, b); if (!best || s < best[0]) best = [s, i]; }
+  return [w.slice(0, best[1]), w.slice(best[1])]; }
+function captions(t) {
+  const sc = W / 1080;
+  for (const [a, b, text] of CAPS) {
+    if (t < a || t > b + 0.1) continue;
+    const big = text.startsWith('but');
+    ctx.save(); ctx.font = `300 ${(big ? 60 : 54) * sc}px Inter, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 28 * sc;
+    const lines = wrapBal(text, W * 0.84), lh = (big ? 78 : 70) * sc, y0 = H * 0.125 - (lines.length - 1) * lh / 2;
+    const out = clamp((b - t) / 0.55);
+    let wi = 0;
+    lines.forEach((ws, li) => {
+      const full = ctx.measureText(ws.join(' ')).width; let x = (W - full) / 2;
+      for (const w of ws) {
+        const fin = clamp((t - a - wi * 0.09) / 0.45);
+        ctx.globalAlpha = fin * out; ctx.fillStyle = '#fff';
+        ctx.fillText(w, x, y0 + li * lh + (1 - eio(fin)) * 10 * sc);
+        x += ctx.measureText(w + ' ').width; wi++;
+      }
+    });
+    ctx.restore();
+  }
+}
+
+// ---------------- frame ----------------
+gl.viewport(0, 0, W, H);
+function setCam(prog, c) { gl.uniform3fv(prog.u.ro_, c.ro); gl.uniform3fv(prog.u.uu_, c.uu); gl.uniform3fv(prog.u.vv_, c.vv); gl.uniform3fv(prog.u.ww_, c.ww); gl.uniform3fv(prog.u.C, C); }
+function bbox(J) { const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9]; for (const p of J) for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); }
+  return [mn.map((v, i) => (v + mx[i]) / 2), mn.map((v, i) => (mx[i] - v) / 2 + 0.2)]; }
+const JIT = [[0, 0], [.5, .5], [.5, 0], [0, .5]].map(([x, y]) => [x - .25, y - .25]);
+window.__render = async (t) => {
+  const c = cam(t);
+  const JA = joints(poseA(t)), JB = joints(poseB(t)).map(([x, y, z]) => [x, -y, z]);
+  const [ac, ah] = bbox(JA), [bc, bh] = bbox(JB);
+  gl.useProgram(RM.p); gl.bindVertexArray(vaoQ); const u = RM.u;
+  gl.uniform2f(u.R, W, H); gl.uniform1f(u.T, t); gl.uniform1f(u.ERO, eroR(t)); gl.uniform1f(u.CI, contactI(t));
+  gl.uniform1f(u.MIR, mirror(t)); gl.uniform1f(u.STARS, sm(17, 26, t)); setCam(RM, c);
+  gl.uniform3fv(u.JA, JA.flat()); gl.uniform3fv(u.JB, JB.flat());
+  gl.uniform3fv(u.bAc, ac); gl.uniform3fv(u.bAh, ah); gl.uniform3fv(u.bBc, bc); gl.uniform3fv(u.bBh, bh);
+  gl.enable(gl.BLEND);
+  for (let i = 0; i < SS; i++) {   // running-average supersampling in the framebuffer
+    gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA); gl.blendColor(0, 0, 0, 1 / (i + 1));
+    gl.uniform2f(u.J, SS > 1 ? JIT[i][0] : 0, SS > 1 ? JIT[i][1] : 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  gl.useProgram(PT.p); gl.bindVertexArray(vaoP); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.uniform1f(PT.u.T, t); gl.uniform1f(PT.u.asp, W / H); gl.uniform1f(PT.u.px, 2.4 * W / 1080); setCam(PT, c);
+  gl.drawArrays(gl.POINTS, 0, NP);
+  gl.disable(gl.BLEND); gl.finish();
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
+  ctx.drawImage(gc, 0, 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.filter = `contrast(2.2) brightness(0.6) blur(${14 * W / 1080}px)`; ctx.globalAlpha = 0.3; ctx.drawImage(gc, 0, 0);
+  ctx.filter = `contrast(2.2) brightness(0.6) blur(${48 * W / 1080}px)`; ctx.globalAlpha = 0.25; ctx.drawImage(gc, 0, 0);
+  ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  captions(t);
+  const f = clamp((DUR - t) / 1.4);
+  if (f < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - f})`; ctx.fillRect(0, 0, W, H); }
+};
+
+// ---------------- score (offline Web Audio → WAV) ----------------
+window.__renderAudio = async () => {
+  const sr = 44100, ac = new OfflineAudioContext(2, Math.ceil(sr * DUR), sr);
+  const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+  const master = ac.createGain(); master.gain.value = 0.8;
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3; comp.attack.value = 0.02; comp.release.value = 0.3;
+  master.connect(comp); comp.connect(ac.destination);
+  // generated hall reverb
+  const rv = ac.createConvolver(), irL = sr * 4.5, ir = ac.createBuffer(2, irL, sr);
+  let ns = 3; const nr = () => (ns = (ns * 16807) % 2147483647) / 2147483647 * 2 - 1;
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < irL; i++) d[i] = nr() * Math.pow(1 - i / irL, 3.2); }
+  rv.buffer = ir; const wet = ac.createGain(); wet.gain.value = 0.55; rv.connect(wet); wet.connect(master);
+  const dry = ac.createGain(); dry.gain.value = 0.6; dry.connect(master);
+  const send = (node, w = 1) => { node.connect(dry); const g = ac.createGain(); g.gain.value = w; node.connect(g); g.connect(rv); };
+  // pads
+  const pad = (notes, t0, t1, g = 0.05, cut = 900) => { g *= 3.2;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = cut; lp.Q.value = 0.4;
+    const env = ac.createGain(); env.gain.setValueAtTime(0, t0); env.gain.linearRampToValueAtTime(g, t0 + 1.6);
+    env.gain.setValueAtTime(g, t1); env.gain.linearRampToValueAtTime(0, t1 + 2.4);
+    lp.connect(env); send(env, 1.2);
+    for (const m of notes) for (const dt of [-6, 6]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mf(m); o.detune.value = dt;
+      const pg = ac.createGain(); pg.gain.value = 1 / notes.length; o.connect(pg); pg.connect(lp); o.start(t0); o.stop(t1 + 2.6);
+    }
+  };
+  pad([50, 57, 65, 69, 76], 0, 4.3, 0.05, 700);
+  pad([46, 53, 62, 69, 72], 4.3, 8.3, 0.055, 850);
+  pad([41, 53, 60, 67, 69, 72], 8.3, 14.6, 0.065, 1500);
+  pad([43, 55, 62, 65, 70], 14.6, 20.2, 0.055, 1000);
+  pad([46, 58, 62, 65, 72], 20.2, 25.6, 0.055, 1100);
+  pad([38, 50, 57, 66, 69, 76], 25.6, 29.5, 0.07, 1600);
+  // felt-piano notes
+  const pno = (m, t0, v = 0.22) => {
+    const env = ac.createGain(); env.gain.setValueAtTime(0, t0); env.gain.linearRampToValueAtTime(v, t0 + 0.008);
+    env.gain.exponentialRampToValueAtTime(v * 0.25, t0 + 0.7); env.gain.exponentialRampToValueAtTime(0.0001, t0 + 4.5);
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; env.connect(lp); send(lp, 0.9);
+    [[1, 1], [2, 0.35], [3, 0.12], [4.02, 0.05]].forEach(([h, a]) => { const o = ac.createOscillator(); o.frequency.value = mf(m) * h; o.detune.value = (h - 1) * 3;
+      const g = ac.createGain(); g.gain.value = a; o.connect(g); g.connect(env); o.start(t0); o.stop(t0 + 4.6); });
+  };
+  [[0.35, 69], [1.15, 74, .28], [2.0, 72], [3.0, 69], [4.4, 65], [5.2, 69], [6.0, 72], [7.0, 74], [8.3, 76, .3], [8.32, 69, .18],
+   [11.9, 77], [12.7, 76], [13.5, 72], [15.1, 74], [16.0, 70], [18.4, 69], [19.2, 67], [20.1, 65],
+   [22.2, 65], [23.0, 67], [23.8, 69], [26.1, 69], [26.9, 74], [27.7, 78, .3], [29.0, 81, .2], [29.02, 74, .12]].forEach(([t0, m, v]) => pno(m, t0, v));
+  // bell at contact
+  const bell = (t0, f0, v) => { [[1, 1], [2.76, .5], [5.4, .25], [8.93, .12]].forEach(([h, a]) => {
+    const o = ac.createOscillator(); o.frequency.value = f0 * h; const g = ac.createGain();
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v * a, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 5 / h + 1);
+    o.connect(g); send(g, 1.5); o.start(t0); o.stop(t0 + 6); }); };
+  bell(8.3, mf(81), 0.09); bell(8.33, mf(88), 0.05);
+  // sub thumps
+  const sub = (t0, v) => { const o = ac.createOscillator(); o.frequency.setValueAtTime(58, t0); o.frequency.exponentialRampToValueAtTime(28, t0 + 1.4);
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2);
+    o.connect(g); g.connect(dry); o.start(t0); o.stop(t0 + 2.1); };
+  sub(1.1, 0.55); sub(8.3, 0.7);
+  // noise swells (reverse whoosh before hits, dive/rise through the membrane)
+  const nb = ac.createBuffer(1, sr * 4, sr); { const d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = nr(); }
+  const whoosh = (t0, dur, f0, f1, v) => { const s = ac.createBufferSource(); s.buffer = nb; s.loop = true;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2; bp.frequency.setValueAtTime(f0, t0); bp.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + dur * 0.8); g.gain.linearRampToValueAtTime(0, t0 + dur);
+    s.connect(bp); bp.connect(g); send(g, 0.8); s.start(t0); s.stop(t0 + dur + 0.1); };
+  whoosh(0.2, 0.9, 300, 2500, 0.2); whoosh(7.0, 1.3, 200, 3000, 0.24); whoosh(9.6, 2.8, 2500, 220, 0.28); whoosh(17.8, 3.0, 220, 3500, 0.26);
+  // ember shimmer during the dissolve
+  const pent = [74, 76, 78, 81, 83, 86, 88, 90, 93];
+  let gs = 11; const gr = () => (gs = (gs * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 140; i++) {
+    const t0 = 14.5 + Math.pow(gr(), 0.8) * 6.5, m = pent[(gr() * pent.length) | 0];
+    const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = mf(m);
+    const g = ac.createGain(); const v = 0.025 + gr() * 0.035;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+    const pn = ac.createStereoPanner(); pn.pan.value = gr() * 2 - 1; o.connect(g); g.connect(pn); send(pn, 1.6); o.start(t0); o.stop(t0 + 1.3);
+  }
+  const buf = await ac.startRendering();
+  // WAV encode
+  const L = buf.getChannelData(0), Rr = buf.getChannelData(1), n = L.length, ab = new ArrayBuffer(44 + n * 4), dv = new DataView(ab);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); ws(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true);
+  dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); ws(36, 'data'); dv.setUint32(40, n * 4, true);
+  for (let i = 0; i < n; i++) { dv.setInt16(44 + i * 4, clamp(L[i], -1, 1) * 32767, true); dv.setInt16(46 + i * 4, clamp(Rr[i], -1, 1) * 32767, true); }
+  let bin = ''; const u8 = new Uint8Array(ab); for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
+document.fonts.load('300 54px Inter').then(() => { window.__ready = true; });
+</script></body></html>
