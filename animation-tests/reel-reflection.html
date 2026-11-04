@@ -78,9 +78,12 @@ const KRO = [[0.15, 0.06, 6.9], [0.25, 0.06, 5.4], [0.3, -0.72, 4.7], [0.3, -0.6
 const KTA = [[0.3, 0.0, 0], [0.32, 0.0, 0], [0.32, -0.85, 0], [0.32, -0.62, 0], [0.1, 2.2, -2], [0.1, 3.3, -2]];
 const KRL = [0, 0, Math.PI, Math.PI, 2 * Math.PI, 2 * Math.PI];
 function cam(t) {
+  if (q.get('pfp')) return camFrom([0, 0.02, +q.get('pfp')], [0, 0.0, 0], 0);   // centred square framing for profile art
   let i = 0; while (i < KT.length - 2 && t > KT[i + 1]) i++;
   const u = eio((t - KT[i]) / (KT[i + 1] - KT[i]));
-  const ro = lv(KRO[i], KRO[i + 1], u), ta = lv(KTA[i], KTA[i + 1], u), rl = lerp(KRL[i], KRL[i + 1], u);
+  return camFrom(lv(KRO[i], KRO[i + 1], u), lv(KTA[i], KTA[i + 1], u), lerp(KRL[i], KRL[i + 1], u));
+}
+function camFrom(ro, ta, rl) {
   const sub = (a, b) => a.map((v, k) => v - b[k]), nrm = a => { const l = Math.hypot(...a); return a.map(v => v / l); };
   const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
   const ww = nrm(sub(ta, ro)); let uu = nrm(cr(ww, [0, 1, 0])); let vv = cr(uu, ww);
@@ -308,6 +311,7 @@ function wrapBal(text, maxW) { if (ctx.measureText(text).width <= maxW) return [
   for (let i = 1; i < w.length; i++) { const a = ctx.measureText(w.slice(0, i).join(' ')).width, b = ctx.measureText(w.slice(i).join(' ')).width; const s = Math.max(a, b); if (!best || s < best[0]) best = [s, i]; }
   return [w.slice(0, best[1]), w.slice(best[1])]; }
 function captions(t) {
+  if (q.get('nocap')) return;   // clean frames for stills / profile art
   const sc = W / 1080;
   for (const [a, b, text] of CAPS) {
     if (t < a || t > b + 0.1) continue;
@@ -361,7 +365,7 @@ window.__render = async (t) => {
   ctx.filter = `contrast(2.2) brightness(0.6) blur(${48 * W / 1080}px)`; ctx.globalAlpha = 0.25; ctx.drawImage(gc, 0, 0);
   ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   captions(t);
-  const f = clamp((DUR - t) / 1.4);
+  const f = q.get('nocap') ? 1 : clamp((DUR - t) / 1.4);
   if (f < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - f})`; ctx.fillRect(0, 0, W, H); }
 };
 
