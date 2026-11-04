@@ -1,0 +1,166 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Particle Morph</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// 03 — 100k-particle morph. Every particle's position is an analytic function of time computed in the
+// vertex shader; motion blur = 6 accumulated sub-frame samples; bloom = two blurred additive passes.
+const q = new URLSearchParams(location.search), W = +(q.get('w') || 1920), H = +(q.get('h') || 1080);
+const DUR = 15, N = 100000, MB = +(q.get('mb') || 6);
+const out = document.getElementById('c'); out.width = W; out.height = H;
+const ctx = out.getContext('2d');
+const gc = document.createElement('canvas'); gc.width = W; gc.height = H;
+const gl = gc.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false, alpha: false, premultipliedAlpha: false });
+
+// ---------- seeded RNG + target shapes ----------
+let s = 1234567; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+const gauss = () => Math.sqrt(-2 * Math.log(R() + 1e-9)) * Math.cos(6.2831853 * R());
+const A = [...Array(5)].map(() => new Float32Array(N * 3));
+const RND = new Float32Array(N * 4);
+const set = (a, i, x, y, z) => { a[i * 3] = x; a[i * 3 + 1] = y; a[i * 3 + 2] = z; };
+
+// text targets from rasterised glyphs
+const tc = document.createElement('canvas'); tc.width = 1400; tc.height = 340;
+const tx = tc.getContext('2d'); tx.fillStyle = '#fff'; tx.font = '900 300px Helvetica, Arial, sans-serif';
+tx.textAlign = 'center'; tx.textBaseline = 'middle'; tx.letterSpacing = '12px'; tx.fillText('MOTION', 700, 180);
+const td = tx.getImageData(0, 0, 1400, 340).data, tp = [];
+for (let y = 0; y < 340; y += 1) for (let x = 0; x < 1400; x += 1) if (td[(y * 1400 + x) * 4 + 3] > 128) tp.push(x, y);
+
+for (let i = 0; i < N; i++) {
+  // 0: scatter cloud
+  { const r = 4 + R() * 5, th = R() * 6.283, ph = Math.acos(2 * R() - 1); set(A[0], i, r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph), r * Math.sin(ph) * Math.sin(th)); }
+  // 1: fibonacci sphere (+ slight shell thickness)
+  { const k = i + 0.5, ph = Math.acos(1 - 2 * k / N), th = Math.PI * (1 + Math.sqrt(5)) * k, r = 1.25 + gauss() * 0.012;
+    set(A[1], i, r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph), r * Math.sin(ph) * Math.sin(th)); }
+  // 2: (2,3) torus knot tube
+  { const u = R() * 6.2831853, f = u => [(2 + Math.cos(3 * u)) * Math.cos(2 * u) * 0.5, Math.sin(3 * u) * 0.5, (2 + Math.cos(3 * u)) * Math.sin(2 * u) * 0.5];
+    const c = f(u), c2 = f(u + 1e-3); let t = [c2[0] - c[0], c2[1] - c[1], c2[2] - c[2]]; const tl = Math.hypot(...t); t = t.map(v => v / tl);
+    let n = [t[1], -t[0], 0]; let nl = Math.hypot(...n) || 1; n = n.map(v => v / nl);
+    const b = [t[1] * n[2] - t[2] * n[1], t[2] * n[0] - t[0] * n[2], t[0] * n[1] - t[1] * n[0]];
+    const a = R() * 6.283, rr = 0.16 * Math.sqrt(R()) ;
+    set(A[2], i, c[0] + rr * (Math.cos(a) * n[0] + Math.sin(a) * b[0]), c[1] + rr * (Math.cos(a) * n[1] + Math.sin(a) * b[1]), c[2] + rr * (Math.cos(a) * n[2] + Math.sin(a) * b[2]));
+    RND[i * 4 + 3] = u / 6.2831853; }
+  // 3: two-arm logarithmic spiral galaxy
+  { const arm = i % 2, rr = Math.pow(R(), 0.6) * 2.1, a = arm * Math.PI + rr * 2.6 + gauss() * 0.28 / (0.4 + rr);
+    const core = R() < 0.18; const r2 = core ? Math.abs(gauss()) * 0.28 : rr;
+    const a2 = core ? R() * 6.283 : a;
+    set(A[3], i, Math.cos(a2) * r2, gauss() * 0.04 * (core ? 2.5 : 1), Math.sin(a2) * r2); }
+  // 4: text
+  { const j = (R() * tp.length / 2 | 0) * 2; set(A[4], i, ((tp[j] + R() - 700) / 1400) * 3.9, -((tp[j + 1] + R() - 180) / 1400) * 3.9, gauss() * 0.03); }
+  RND[i * 4] = R(); RND[i * 4 + 1] = R(); RND[i * 4 + 2] = R();
+}
+
+// ---------- GL ----------
+const VS = `#version 300 es
+precision highp float;
+in vec3 s0, s1, s2, s3, s4; in vec4 rn;
+uniform float T, asp, px; out vec3 vc; out float va;
+mat3 rY(float a){ float c=cos(a),s=sin(a); return mat3(c,0,-s, 0,1,0, s,0,c); }
+mat3 rX(float a){ float c=cos(a),s=sin(a); return mat3(1,0,0, 0,c,s, 0,-s,c); }
+float e(float x){ x=clamp(x,0.,1.); return x<.5 ? 4.*x*x*x : 1.-pow(-2.*x+2.,3.)/2.; }
+vec3 pal(float t, vec3 a, vec3 b, vec3 c, vec3 d){ return a + b*cos(6.2831*(c*t+d)); }
+vec3 flow(vec3 p, float t){
+  vec3 q = p*1.4;
+  for(int i=0;i<4;i++) q += 0.32*sin(q.yzx*1.9 + vec3(t*0.9, 1.3+t*0.6, 2.1-t*0.7) + float(i)*1.7);
+  return q/1.4 - p;
+}
+void main(){
+  // transitions: [start, duration], staggered per particle by a spatial sweep + jitter
+  float d1 = rn.x*0.9;                      // scatter -> sphere (random order)
+  float d2 = (s1.y/1.25*.5+.5)*0.9 + rn.y*0.25;   // sphere -> knot sweeps top to bottom
+  float d3 = rn.w*0.9 + rn.z*0.2;            // knot -> galaxy flows along the knot
+  float d4 = (s4.x/3.9+.5)*0.9 + rn.x*0.2;   // galaxy -> text sweeps left to right
+  float p1 = clamp((T-0.3-d1)/1.6,0.,1.), p2 = clamp((T-3.8-d2)/1.7,0.,1.);
+  float p3 = clamp((T-7.3-d3)/1.7,0.,1.), p4 = clamp((T-10.7-d4)/1.7,0.,1.);
+  float p5 = clamp((T-13.6-rn.y*0.6)/1.2,0.,1.);
+  float e1=e(p1), e2=e(p2), e3=e(p3), e4=e(p4);
+
+  float yaw = T*0.45;
+  vec3 S1 = rY(yaw)*s1;
+  vec3 S2 = rY(yaw*1.2)*rX(0.5+0.2*sin(T*0.6))*s2;
+  vec3 S3 = rX(-0.95+0.08*sin(T*0.5))*rY(-T*0.55)*s3;
+  vec3 S4 = s4 + vec3(0., 0.012*sin(T*2.+rn.z*6.28), 0.);
+  vec3 S0 = rY(T*0.2)*s0;
+
+  vec3 p = mix(S0, S1, e1); p = mix(p, S2, e2); p = mix(p, S3, e3); p = mix(p, S4, e4);
+  float sw = sin(3.14159*p1)*0.6 + sin(3.14159*p2) + sin(3.14159*p3) + sin(3.14159*p4)*0.85;
+  p += flow(p + rn.xyz*0.15, T) * sw * 0.9;
+  // finale: dissolve upward along the flow
+  p += (flow(p*0.7, T*1.3)*2.5 + vec3(0., 1.6, 0.)) * e(p5);
+
+  // colour per shape
+  vec3 c0 = vec3(0.55,0.6,0.9);
+  vec3 c1 = pal(s1.y*0.18+rn.x*0.08, vec3(.45,.6,.85), vec3(.35,.3,.2), vec3(1.), vec3(.55,.6,.7));
+  vec3 c2 = pal(rn.w+T*0.05, vec3(.7,.45,.55), vec3(.35,.3,.35), vec3(1.), vec3(0.,.15,.3));
+  float gr = length(s3.xz)/2.1;
+  vec3 c3 = mix(vec3(1.0,0.85,0.55), mix(vec3(0.45,0.55,1.0), vec3(0.85,0.4,0.95), rn.z), smoothstep(0.05,0.55,gr));
+  vec3 c4 = mix(vec3(1.0,0.95,0.88), vec3(1.0,0.6,0.35), rn.y*0.6);
+  vec3 c = mix(c0,c1,e1); c = mix(c,c2,e2); c = mix(c,c3,e3); c = mix(c,c4,e4);
+  c += sw*0.25*vec3(0.4,0.6,1.0);           // hot streaks while in flight
+
+  // camera: perspective
+  p = rX(0.12)*p;
+  float z = 5.2 - p.z;
+  float f = 2.3;
+  gl_Position = vec4(p.x*f/z/asp, p.y*f/z, 0., 1.);
+  gl_PointSize = px * (1.0 + rn.z*0.8) * 5.2/z;
+  va = (1.-e(p5)) * smoothstep(0.,0.6,T) * (z>0.2?1.:0.);
+  vc = c;
+}`;
+const FS = `#version 300 es
+precision highp float; in vec3 vc; in float va; uniform float g; out vec4 o;
+void main(){ vec2 d = gl_PointCoord-.5; float r = exp(-dot(d,d)*14.); o = vec4(vc*r*va*g, 1.); }`;
+function compile(t, src) { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x);
+  if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; }
+const pr = gl.createProgram(); gl.attachShader(pr, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, compile(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); gl.useProgram(pr);
+const attr = (name, data, n) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  const l = gl.getAttribLocation(pr, name); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, 0, 0); };
+A.forEach((a, i) => attr('s' + i, a, 3)); attr('rn', RND, 4);
+const U = n => gl.getUniformLocation(pr, n);
+gl.uniform1f(U('asp'), W / H); gl.uniform1f(U('px'), 2.6 * H / 1080);
+gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.viewport(0, 0, W, H);
+
+// ---------- compositing ----------
+const LABELS = [[1.2, 'FIBONACCI SPHERE'], [4.7, 'TORUS KNOT (2,3)'], [8.2, 'LOGARITHMIC SPIRAL'], [11.6, '100,000 PARTICLES · 6× MOTION BLUR']];
+function overlay(t) {
+  const sc = H / 1080;
+  const ti = Math.min(1, Math.max(0, (t - 0.3) / 0.8)) * Math.min(1, Math.max(0, (3.0 - t) / 0.6));
+  if (ti > 0) {
+    ctx.save(); ctx.globalAlpha = ti; ctx.fillStyle = '#fff';
+    ctx.font = `600 ${22 * sc}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${8 * sc}px`; ctx.fillText('TEST 03 / 03', 90 * sc, 120 * sc);
+    ctx.font = `200 ${64 * sc}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${2 * sc}px`; ctx.fillText('Particle Morphing', 90 * sc, 190 * sc);
+    ctx.restore();
+  }
+  let cur = null; for (const L of LABELS) if (t >= L[0]) cur = L;
+  if (cur) {
+    const age = t - cur[0], f = Math.min(1, age / 0.5) * Math.min(1, Math.max(0, (DUR - 1.2 - t) / 0.6));
+    ctx.save(); ctx.globalAlpha = 0.8 * f; ctx.fillStyle = '#fff';
+    ctx.font = `500 ${18 * sc}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${6 * sc}px`; ctx.fillText(cur[1], 90 * sc, H - 90 * sc);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(90 * sc, H - 76 * sc, 40 * sc * Math.min(1, age / 0.7), 2 * sc); ctx.restore();
+  }
+  const f = Math.min(1, t / 0.4, (DUR - t) / 0.6);
+  if (f < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, f)})`; ctx.fillRect(0, 0, W, H); }
+}
+
+window.__render = async (t) => {
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniform1f(U('g'), 0.42 / MB);
+  const shutter = 0.5 / 30;                   // 180° shutter
+  for (let k = 0; k < MB; k++) { gl.uniform1f(U('T'), t + (MB > 1 ? (k / (MB - 1) - 0.5) * shutter : 0)); gl.drawArrays(gl.POINTS, 0, N); }
+  gl.finish();
+  // background
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
+  const bg = ctx.createRadialGradient(W / 2, H * 0.55, 0, W / 2, H * 0.55, H);
+  bg.addColorStop(0, '#0c1024'); bg.addColorStop(1, '#020309');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  // particles + bloom
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(gc, 0, 0);
+  ctx.filter = `blur(${10 * H / 1080}px)`; ctx.globalAlpha = 0.6; ctx.drawImage(gc, 0, 0);
+  ctx.filter = `blur(${36 * H / 1080}px)`; ctx.globalAlpha = 0.45; ctx.drawImage(gc, 0, 0);
+  ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  overlay(t);
+};
+window.__ready = true;
+</script></body></html>

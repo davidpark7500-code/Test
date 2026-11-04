@@ -1,0 +1,198 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Fluid Simulation</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// 02 — GPU Navier–Stokes ("stable fluids") on WebGL2. Deterministic: fixed timestep, seeded emitters.
+const q = new URLSearchParams(location.search), W = +(q.get('w') || 1920), H = +(q.get('h') || 1080);
+const DUR = 16, DT = 1 / 60;
+const out = document.getElementById('c'); out.width = W; out.height = H;
+const ctx = out.getContext('2d');
+const gc = document.createElement('canvas'); gc.width = W; gc.height = H;
+const gl = gc.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false, alpha: false });
+gl.getExtension('EXT_color_buffer_float');
+
+const SIM_H = 270, SIM_W = Math.round(SIM_H * W / H);
+const DYE_H = 1080 * H / 1080 | 0, DYE_W = Math.round(DYE_H * W / H);
+
+const VS = `#version 300 es
+in vec2 p; out vec2 uv; out vec2 L; out vec2 Rr; out vec2 T; out vec2 B; uniform vec2 tx;
+void main(){ uv=p*.5+.5; L=uv-vec2(tx.x,0.); Rr=uv+vec2(tx.x,0.); T=uv+vec2(0.,tx.y); B=uv-vec2(0.,tx.y); gl_Position=vec4(p,0.,1.); }`;
+const H_ = `#version 300 es
+precision highp float; precision highp sampler2D;
+in vec2 uv; in vec2 L; in vec2 Rr; in vec2 T; in vec2 B; out vec4 o; uniform vec2 tx;
+`;
+const FS = {
+  splat: H_ + `uniform sampler2D u; uniform vec2 pt; uniform vec3 col; uniform float rad, ar;
+    void main(){ vec2 d=uv-pt; d.x*=ar; vec3 s=exp(-dot(d,d)/rad)*col; o=vec4(texture(u,uv).xyz+s,1.); }`,
+  advect: H_ + `uniform sampler2D v, s; uniform float dt, diss; uniform vec2 stx;
+    void main(){ vec2 c = uv - dt*texture(v,uv).xy*tx; o = texture(s,c)/(1.+diss*dt); o.a=1.; }`,
+  curl: H_ + `uniform sampler2D v;
+    void main(){ float l=texture(v,L).y, r=texture(v,Rr).y, t=texture(v,T).x, b=texture(v,B).x; o=vec4(.5*(r-l-t+b),0,0,1); }`,
+  vort: H_ + `uniform sampler2D v, c; uniform float k, dt;
+    void main(){ float l=texture(c,L).x, r=texture(c,Rr).x, t=texture(c,T).x, b=texture(c,B).x, C=texture(c,uv).x;
+      vec2 f=.5*vec2(abs(t)-abs(b), abs(r)-abs(l)); f/=length(f)+1e-4; f*=k*C; f.y*=-1.;
+      vec2 vel=texture(v,uv).xy + f*dt; o=vec4(clamp(vel,-1000.,1000.),0,1); }`,
+  div: H_ + `uniform sampler2D v;
+    void main(){ float l=texture(v,L).x, r=texture(v,Rr).x, t=texture(v,T).y, b=texture(v,B).y; vec2 C=texture(v,uv).xy;
+      if(L.x<0.) l=-C.x; if(Rr.x>1.) r=-C.x; if(T.y>1.) t=-C.y; if(B.y<0.) b=-C.y; o=vec4(.5*(r-l+t-b),0,0,1); }`,
+  clear: H_ + `uniform sampler2D u; uniform float k; void main(){ o=k*texture(u,uv); }`,
+  press: H_ + `uniform sampler2D p, d;
+    void main(){ float l=texture(p,L).x, r=texture(p,Rr).x, t=texture(p,T).x, b=texture(p,B).x; o=vec4((l+r+b+t-texture(d,uv).x)*.25,0,0,1); }`,
+  grad: H_ + `uniform sampler2D p, v;
+    void main(){ float l=texture(p,L).x, r=texture(p,Rr).x, t=texture(p,T).x, b=texture(p,B).x; o=vec4(texture(v,uv).xy-vec2(r-l,t-b),0,1); }`,
+  display: H_ + `uniform sampler2D d; uniform vec2 dtx; uniform float t;
+    vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
+    void main(){
+      vec3 c = texture(d,uv).rgb;
+      // fake relief lighting from dye density gradient
+      float dl=length(texture(d,uv-vec2(dtx.x,0)).rgb), dr=length(texture(d,uv+vec2(dtx.x,0)).rgb);
+      float dt_=length(texture(d,uv+vec2(0,dtx.y)).rgb), db=length(texture(d,uv-vec2(0,dtx.y)).rgb);
+      vec3 n = normalize(vec3(dl-dr, db-dt_, 0.35));
+      float diff = clamp(dot(n, normalize(vec3(-.4,.6,.7))), 0., 1.);
+      float spec = pow(max(dot(reflect(-normalize(vec3(-.4,.6,.7)),n), vec3(0,0,1)),0.), 24.);
+      c = c*(0.55+0.65*diff) + spec*0.35*min(length(c),1.);
+      // bloom-ish: wide taps
+      vec3 g=vec3(0.); for(int i=0;i<8;i++){ float a=float(i)*.785398; g+=texture(d,uv+vec2(cos(a),sin(a))*dtx*18.).rgb; }
+      c += g/8.*0.22;
+      c = aces(c*1.1);
+      // background: deep ink with faint radial glow
+      vec2 p=uv-.5; p.x*=dtx.y/dtx.x;
+      vec3 bg = vec3(0.012,0.014,0.024)+vec3(0.02,0.025,0.05)*(1.-length(p)*1.4);
+      c = max(c,0.) + bg*(1.-clamp(length(c)*2.,0.,1.));
+      c = pow(c, vec3(1./2.2));
+      // film grain
+      float gr = fract(sin(dot(uv*vec2(1920.,1080.)+t*61.,vec2(12.9898,78.233)))*43758.5453)-.5;
+      o = vec4(c+gr*0.025, 1.);
+    }`,
+};
+function compile(t, s) { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x);
+  if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x) + '\n' + s); return x; }
+const vs = compile(gl.VERTEX_SHADER, VS);
+const P = {};
+for (const k in FS) {
+  const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, compile(gl.FRAGMENT_SHADER, FS[k]));
+  gl.bindAttribLocation(pr, 0, 'p'); gl.linkProgram(pr);
+  const u = {}; const n = gl.getProgramParameter(pr, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(pr, i).name; u[nm] = gl.getUniformLocation(pr, nm); }
+  P[k] = { pr, u };
+}
+const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+function fbo(w, h) {
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  for (const [a, b] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, a, b);
+  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  return { tex, fb, w, h };
+}
+const dbl = (w, h) => { let a = fbo(w, h), b = fbo(w, h); return { get r() { return a; }, get w() { return b; }, swap() { [a, b] = [b, a]; } }; };
+const vel = dbl(SIM_W, SIM_H), dye = dbl(DYE_W, DYE_H), prs = dbl(SIM_W, SIM_H);
+const divT = fbo(SIM_W, SIM_H), curlT = fbo(SIM_W, SIM_H);
+
+let unit = 0;
+function run(name, target, uni) {
+  const { pr, u } = P[name]; gl.useProgram(pr); unit = 0;
+  const tw = target ? target.w : W, th = target ? target.h : H;
+  if (u.tx) gl.uniform2f(u.tx, 1 / (uni._tw || tw), 1 / (uni._th || th));
+  for (const k in uni) {
+    if (k[0] === '_' || !u[k]) continue; const v = uni[k];
+    if (v && v.tex) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, v.tex); gl.uniform1i(u[k], unit++); }
+    else if (typeof v === 'number') gl.uniform1f(u[k], v);
+    else if (v.length === 2) gl.uniform2f(u[k], ...v); else gl.uniform3f(u[k], ...v);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fb : null);
+  gl.viewport(0, 0, tw, th); gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+function splat(x, y, dx, dy, col, r) {
+  run('splat', vel.w, { u: vel.r, pt: [x, y], col: [dx, dy, 0], rad: r, ar: W / H }); vel.swap();
+  run('splat', dye.w, { u: dye.r, pt: [x, y], col, rad: r, ar: W / H }); dye.swap();
+}
+function step(dt) {
+  run('curl', curlT, { v: vel.r });
+  run('vort', vel.w, { v: vel.r, c: curlT, k: 28, dt }); vel.swap();
+  run('div', divT, { v: vel.r });
+  run('clear', prs.w, { u: prs.r, k: 0.8 }); prs.swap();
+  for (let i = 0; i < 24; i++) { run('press', prs.w, { p: prs.r, d: divT }); prs.swap(); }
+  run('grad', vel.w, { p: prs.r, v: vel.r }); vel.swap();
+  run('advect', vel.w, { v: vel.r, s: vel.r, dt, diss: 0.15 }); vel.swap();
+  run('advect', dye.w, { v: vel.r, s: dye.r, dt, diss: 0.6, _tw: SIM_W, _th: SIM_H }); dye.swap();
+}
+
+// palette (linear-ish HDR)
+const pal = t => [0.5 + 0.5 * Math.cos(6.2832 * (t + 0.0)), 0.5 + 0.5 * Math.cos(6.2832 * (t + 0.33)), 0.5 + 0.5 * Math.cos(6.2832 * (t + 0.67))];
+const mul = (c, k) => c.map(v => v * k);
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const bursts = []; { let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let t = 8.2; t < 11.8; t += 0.28 + r() * 0.2) bursts.push({ t, x: 0.15 + r() * 0.7, y: 0.18 + r() * 0.64, h: r(), n: 5 + (r() * 4 | 0), a: r() * 6.28 }); }
+
+// choreography — called every sim step
+function emit(t, dt) {
+  const k = 60 * dt; // per-step scale
+  // Act 1 (0.4–3.6s): two jets collide head-on
+  if (t > 0.4 && t < 3.6) {
+    const w = Math.sin(t * 3) * 0.04;
+    splat(0.04, 0.5 + w, 900 * k, 0, mul([1.0, 0.35, 0.08], 0.38 * k), 0.0009);
+    splat(0.96, 0.5 - w, -900 * k, 0, mul([0.05, 0.45, 1.0], 0.38 * k), 0.0009);
+  }
+  // Act 2 (3.6–8.2s): four orbiting tangential emitters → spiral galaxy
+  if (t > 3.6 && t < 8.2) {
+    for (let i = 0; i < 4; i++) {
+      const a = t * 1.4 + i * Math.PI / 2, R = 0.22, ar = H / W;
+      const x = 0.5 + Math.cos(a) * R * ar, y = 0.5 + Math.sin(a) * R;
+      const c = pal(0.08 + i * 0.12 + t * 0.03);
+      splat(x, y, -Math.sin(a) * 480 * k, Math.cos(a) * 480 * k, mul(c, 0.12 * k), 0.0005);
+    }
+  }
+  // Act 3 (8.2–11.8s): radial fireworks bursts
+  for (const b of bursts) if (t >= b.t && t - dt < b.t) {
+    for (let j = 0; j < b.n; j++) {
+      const a = b.a + j * 6.2832 / b.n;
+      splat(b.x, b.y, Math.cos(a) * 1400, Math.sin(a) * 1400, mul(pal(b.h + j * 0.04), 2.2), 0.0005);
+    }
+  }
+  // Act 4 (12–14s): one sweeping arc that wraps everything into a final vortex
+  if (t > 12 && t < 14) {
+    const u = (t - 12) / 2, a = -1.2 + u * 5.5;
+    const x = 0.5 + Math.cos(a) * 0.3 * H / W * 1.6, y = 0.5 + Math.sin(a) * 0.3;
+    splat(x, y, -Math.sin(a) * 1100 * k, Math.cos(a) * 1100 * k, mul(pal(0.9 + u * 0.3), 0.3 * k), 0.0012);
+  }
+}
+
+let simT = 0;
+const ACTS = [[0, 'TEST 02 / 03', 'Navier–Stokes Fluid'], [3.6, '', 'vorticity confinement'], [8.2, '', 'impulse bursts'], [12, '', 'pressure projection · 24 Jacobi iterations']];
+function overlay(t) {
+  const s = H / 1080;
+  const ti = Math.min(1, Math.max(0, (t - 0.3) / 0.8)) * Math.min(1, Math.max(0, (3.2 - t) / 0.6));
+  if (ti > 0) {
+    ctx.save(); ctx.globalAlpha = ti; ctx.fillStyle = '#fff';
+    ctx.font = `600 ${22 * s}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${8 * s}px`; ctx.fillText('TEST 02 / 03', 90 * s, 120 * s);
+    ctx.font = `200 ${64 * s}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${2 * s}px`; ctx.fillText('Navier–Stokes Fluid', 90 * s, 190 * s);
+    ctx.restore();
+  }
+  let cur = ACTS[0]; for (const A of ACTS) if (t >= A[0]) cur = A;
+  if (cur[0] > 0) {
+    const age = t - cur[0], f = Math.min(1, age / 0.5) * Math.min(1, Math.max(0, (DUR - 0.5 - t) / 0.6));
+    ctx.save(); ctx.globalAlpha = 0.8 * f; ctx.fillStyle = '#fff';
+    ctx.font = `500 ${18 * s}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${6 * s}px`;
+    ctx.fillText(cur[2].toUpperCase(), 90 * s, H - 90 * s);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(90 * s, H - 76 * s, 40 * s * Math.min(1, age / 0.7), 2 * s); ctx.restore();
+  }
+  const f = Math.min(1, t / 0.5, (DUR - t) / 1.0);
+  if (f < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, f)})`; ctx.fillRect(0, 0, W, H); }
+}
+
+window.__render = async (t) => {
+  while (simT + DT <= t + 1e-6) { emit(simT, DT); step(DT); simT += DT; }
+  run('display', null, { d: dye.r, dtx: [1 / DYE_W, 1 / DYE_H], t });
+  gl.finish();
+  ctx.globalAlpha = 1; ctx.drawImage(gc, 0, 0);
+  overlay(t);
+};
+window.__ready = true;
+</script></body></html>

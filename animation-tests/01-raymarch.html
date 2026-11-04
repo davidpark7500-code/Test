@@ -1,0 +1,239 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Raymarched Morph</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// 01 — Raymarched SDF morph. Pure fragment shader: no meshes, no engine.
+const q = new URLSearchParams(location.search), W = +(q.get('w') || 1920), H = +(q.get('h') || 1080);
+const DUR = 14;
+const out = document.getElementById('c'); out.width = W; out.height = H;
+const ctx = out.getContext('2d');
+const gc = document.createElement('canvas'); gc.width = W; gc.height = H;
+const gl = gc.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false });
+
+const VS = `#version 300 es
+in vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
+const FS = `#version 300 es
+precision highp float;
+uniform vec2 R; uniform float T; uniform vec2 J; out vec4 o;
+#define PI 3.14159265
+
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+mat2 rot(float a){ float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
+float smin(float a,float b,float k){ float h=clamp(.5+.5*(b-a)/k,0.,1.); return mix(b,a,h)-k*h*(1.-h); }
+float ease(float x){ x=clamp(x,0.,1.); return x*x*x*(x*(x*6.-15.)+10.); }
+
+// --- four shapes ---
+float sSphere(vec3 p){ return length(p)-1.0; }
+float sBox(vec3 p){
+  p.xz *= rot(p.y*0.9*sin(T*0.6));             // animated twist
+  vec3 q=abs(p)-vec3(0.72); return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.)-0.22; }
+float sGyroid(vec3 p){
+  float sh = abs(length(p)-1.0)-0.06;           // thin shell
+  vec3 g = p*6.0 + vec3(0,T*1.2,0);
+  float gy = abs(dot(sin(g),cos(g.yzx)))/6.0-0.035;
+  return max(sh*0.9, gy*0.9);
+}
+float sBlobs(vec3 p){
+  float d = 1e9;
+  for(int i=0;i<5;i++){
+    float fi=float(i), a=T*1.3+fi*2.0*PI/5.0;
+    vec3 c = vec3(cos(a)*0.75, sin(T*2.1+fi*1.7)*0.45, sin(a)*0.75);
+    d = smin(d, length(p-c)-0.38-0.06*sin(T*3.+fi), 0.45);
+  }
+  return smin(d, length(p)-0.45, 0.4);
+}
+
+// morph timeline: sphere -> twisted box -> gyroid shell -> metaballs -> sphere
+vec4 W4(){
+  float t = T;
+  float a=ease((t-2.0)/1.4), b=ease((t-5.2)/1.4), c=ease((t-8.4)/1.4), d=ease((t-11.4)/1.4);
+  return vec4(a,b,c,d);
+}
+float obj(vec3 p){
+  p.y -= 1.25 + 0.06*sin(T*1.7);
+  p.xz *= rot(T*0.35);
+  vec4 w=W4();
+  float d0=sSphere(p);
+  float d = d0;
+  if(w.x>0.) d = mix(d, sBox(p), w.x);
+  if(w.y>0.) d = mix(d, sGyroid(p), w.y);
+  if(w.z>0.) d = mix(d, sBlobs(p), w.z);
+  if(w.w>0.) d = mix(d, d0, w.w);
+  return d;
+}
+vec2 map(vec3 p){
+  float o = obj(p);
+  float f = p.y;
+  return o<f ? vec2(o,1.) : vec2(f,0.);
+}
+vec3 nrm(vec3 p){
+  const vec2 e=vec2(1,-1)*0.0007;
+  return normalize(e.xyy*map(p+e.xyy).x+e.yyx*map(p+e.yyx).x+e.yxy*map(p+e.yxy).x+e.xxx*map(p+e.xxx).x);
+}
+vec2 march(vec3 ro, vec3 rd, int N, float tmax){
+  float t=0.01; vec2 h;
+  for(int i=0;i<N;i++){
+    h = map(ro+rd*t);
+    if(abs(h.x)<0.0004*t) return vec2(t,h.y);
+    t += h.x*0.85;
+    if(t>tmax) break;
+  }
+  return vec2(-1.);
+}
+float shadow(vec3 ro, vec3 rd){
+  float r=1., t=0.02, ph=1e10;
+  for(int i=0;i<48;i++){
+    float h = obj(ro+rd*t);
+    float y = h*h/(2.*ph), d=sqrt(max(h*h-y*y,0.));
+    r = min(r, 10.*d/max(0.,t-y)); ph=h; t += clamp(h,0.02,0.25);
+    if(r<0.001||t>8.) break;
+  }
+  return clamp(r,0.,1.);
+}
+float ao(vec3 p, vec3 n){
+  float o=0., s=1.;
+  for(int i=1;i<=5;i++){ float h=0.04*float(i); o += (h-map(p+n*h).x)*s; s*=0.75; }
+  return clamp(1.-2.2*o,0.,1.);
+}
+const vec3 SUN = normalize(vec3(-0.55,0.42,-0.72));
+vec3 sky(vec3 rd){
+  float y = max(rd.y,0.);
+  vec3 c = mix(vec3(1.0,0.5,0.26), vec3(0.06,0.10,0.30), pow(y,0.38));
+  c = mix(c, vec3(0.05,0.05,0.09), smoothstep(0.,-0.25,rd.y));
+  float s = max(dot(rd,SUN),0.);
+  c += vec3(1.0,0.6,0.3)*pow(s,6.)*0.6 + vec3(1.,0.85,0.6)*pow(s,900.)*14.;
+  return c;
+}
+// shade a surface hit (no further reflection)
+vec3 shadeBasic(vec3 p, vec3 rd, float m){
+  vec3 n = nrm(p);
+  float dif = max(dot(n,SUN),0.) * shadow(p+n*0.002,SUN);
+  float a = ao(p,n);
+  vec3 col;
+  if(m>0.5){ col = vec3(0.9,0.55,0.35)*(0.15+dif) * a; }
+  else {
+    vec2 g = abs(fract(p.xz*0.5)-0.5);
+    float line = smoothstep(0.012,0.0,min(g.x,g.y));
+    vec3 base = vec3(0.045,0.045,0.055) + line*vec3(0.08,0.06,0.05);
+    col = base*(0.25+2.2*dif*vec3(1.,0.8,0.6))*a;
+  }
+  return col;
+}
+// GGX-ish highlight
+float spec(vec3 n, vec3 v, vec3 l, float r){
+  vec3 h=normalize(v+l); float nh=max(dot(n,h),0.); float a=r*r; float d=nh*nh*(a*a-1.)+1.;
+  return a*a/(PI*d*d);
+}
+vec3 render(vec3 ro, vec3 rd){
+  vec2 h = march(ro,rd,160,40.);
+  if(h.x<0.) return sky(rd);
+  vec3 p = ro+rd*h.x, n = nrm(p), v=-rd;
+  float sh = shadow(p+n*0.002,SUN), a = ao(p,n);
+  float fres = pow(1.-max(dot(n,v),0.),5.);
+  vec3 r = reflect(rd,n);
+  vec3 col;
+  if(h.y>0.5){
+    // polished copper-chrome object, mirror reflection bounce
+    vec3 F0 = vec3(0.98,0.72,0.55);
+    vec3 F = F0 + (1.-F0)*fres;
+    vec2 h2 = march(p+n*0.004, r, 80, 20.);
+    vec3 rc = h2.x<0. ? sky(r) : shadeBasic(p+n*0.004+r*h2.x, r, h2.y);
+    col = rc*F*mix(0.35,1.,a);
+    col += vec3(1.,0.85,0.65)*spec(n,v,SUN,0.18)*sh*F*2.5;
+    // iridescent rim
+    col += 0.10*fres*(0.5+0.5*cos(6.2831*(dot(n,v)*1.5+vec3(0.,0.33,0.67)+T*0.1)));
+  } else {
+    // glossy dark floor with blurred-ish reflection (fade by distance)
+    vec2 g = abs(fract(p.xz*0.5)-0.5);
+    float line = smoothstep(0.012,0.0,min(g.x,g.y));
+    vec3 base = vec3(0.04,0.04,0.05)+line*vec3(0.09,0.065,0.05);
+    col = base*(0.25+2.2*vec3(1.,0.8,0.6)*max(dot(n,SUN),0.)*sh)*a;
+    vec2 h2 = march(p+n*0.003, r, 90, 20.);
+    vec3 rc = h2.x<0. ? sky(r) : shadeBasic(p+n*0.003+r*h2.x, r, h2.y);
+    float k = 0.04+0.5*fres;
+    rc = min(rc, vec3(1.6));
+    col = mix(col, rc, k*exp(-0.004*h.x*h.x));
+    col += vec3(1.,0.8,0.6)*min(spec(n,v,SUN,0.4),6.)*sh*0.03;
+  }
+  // atmospheric fog
+  col = mix(col, sky(rd)*0.9, 1.-exp(-0.0011*h.x*h.x));
+  return col;
+}
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.,1.); }
+void main(){
+  vec2 fc = gl_FragCoord.xy + J;
+  vec2 uv = (2.*fc-R)/R.y;
+  // camera: slow orbit + push-in + crane
+  float ang = 0.6 + T*0.32;
+  float dist = 5.6 - 1.4*smoothstep(0.,14.,T);
+  vec3 ta = vec3(0.,1.15,0.);
+  vec3 ro = vec3(sin(ang)*dist, 1.55+0.55*sin(T*0.25), cos(ang)*dist);
+  vec3 ww = normalize(ta-ro), uu=normalize(cross(ww,vec3(0,1,0))), vv=cross(uu,ww);
+  vec3 rd = normalize(uv.x*uu + uv.y*vv + 2.1*ww);
+  vec3 col = render(ro,rd);
+  col = aces(col*1.05);
+  col = pow(col, vec3(1./2.2));
+  o = vec4(col,1.);
+}`;
+
+function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const uR = gl.getUniformLocation(prog, 'R'), uT = gl.getUniformLocation(prog, 'T'), uJ = gl.getUniformLocation(prog, 'J');
+gl.viewport(0, 0, W, H);
+
+// Supersampling: render N jittered passes, accumulate on the 2D canvas with additive averaging.
+const SS = +(q.get('ss') || 1);
+const jit = [[0, 0], [0.5, 0.5], [0.5, 0], [0, 0.5]].map(([x, y]) => [x - 0.25, y - 0.25]);
+const LABELS = [[0, 'SPHERE'], [2.7, 'TWISTED BOX'], [5.9, 'GYROID SHELL'], [9.1, 'METABALLS'], [12.1, 'SPHERE']];
+
+function overlay(t) {
+  // grain + vignette
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 1.0);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const s = H / 1080;
+  // title card
+  const ti = Math.min(1, Math.max(0, (t - 0.3) / 0.8)) * Math.min(1, Math.max(0, (2.2 - t) / 0.6));
+  if (ti > 0) {
+    ctx.save(); ctx.globalAlpha = ti; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+    ctx.font = `600 ${22 * s}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${8 * s}px`;
+    ctx.fillText('TEST 01 / 03', 90 * s, 120 * s);
+    ctx.font = `200 ${64 * s}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${2 * s}px`;
+    ctx.fillText('Raymarched Distance Fields', 90 * s, 190 * s);
+    ctx.restore();
+  }
+  // shape label, lower-left
+  let cur = LABELS[0];
+  for (const L of LABELS) if (t >= L[0]) cur = L;
+  const age = t - cur[0], fade = Math.min(1, age / 0.5) * Math.min(1, Math.max(0, (DUR - 0.3 - t) / 0.6));
+  ctx.save(); ctx.globalAlpha = 0.85 * fade; ctx.fillStyle = '#fff';
+  ctx.font = `500 ${18 * s}px Helvetica, Arial, sans-serif`; ctx.letterSpacing = `${6 * s}px`;
+  ctx.fillText(cur[1], 90 * s, H - 90 * s);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(90 * s, H - 76 * s, 40 * s * Math.min(1, age / 0.7), 2 * s);
+  ctx.restore();
+  // fade in/out
+  const f = Math.min(1, t / 0.6, (DUR - t) / 0.8);
+  if (f < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, f)})`; ctx.fillRect(0, 0, W, H); }
+}
+
+window.__render = async (t) => {
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < SS; i++) {
+    gl.uniform2f(uR, W, H); gl.uniform1f(uT, t); gl.uniform2f(uJ, SS > 1 ? jit[i][0] : 0, SS > 1 ? jit[i][1] : 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    ctx.globalAlpha = 1 / (i + 1); ctx.drawImage(gc, 0, 0);   // running average
+  }
+  ctx.globalAlpha = 1;
+  overlay(t);
+};
+window.__ready = true;
+</script></body></html>
