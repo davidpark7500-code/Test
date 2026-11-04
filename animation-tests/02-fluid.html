@@ -121,7 +121,7 @@ function step(dt) {
   for (let i = 0; i < 24; i++) { run('press', prs.w, { p: prs.r, d: divT }); prs.swap(); }
   run('grad', vel.w, { p: prs.r, v: vel.r }); vel.swap();
   run('advect', vel.w, { v: vel.r, s: vel.r, dt, diss: 0.15 }); vel.swap();
-  run('advect', dye.w, { v: vel.r, s: dye.r, dt, diss: 0.6, _tw: SIM_W, _th: SIM_H }); dye.swap();
+  run('advect', dye.w, { v: vel.r, s: dye.r, dt, diss: dyeDiss(simT), _tw: SIM_W, _th: SIM_H }); dye.swap();
 }
 
 // palette (linear-ish HDR)
@@ -146,7 +146,7 @@ function emit(t, dt) {
       const a = t * 1.4 + i * Math.PI / 2, R = 0.22, ar = H / W;
       const x = 0.5 + Math.cos(a) * R * ar, y = 0.5 + Math.sin(a) * R;
       const c = pal(0.08 + i * 0.12 + t * 0.03);
-      splat(x, y, -Math.sin(a) * 480 * k, Math.cos(a) * 480 * k, mul(c, 0.12 * k), 0.0005);
+      splat(x, y, -Math.sin(a) * 480 * k, Math.cos(a) * 480 * k, mul(c, 0.09 * k), 0.00032);
     }
   }
   // Act 3 (8.2–11.8s): radial fireworks bursts
@@ -165,6 +165,9 @@ function emit(t, dt) {
 }
 
 let simT = 0;
+// Act 2 fades dye faster so the orbiting emitters draw ribbons instead of flooding the frame
+const sm = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+const dyeDiss = t => 0.6 + 0.7 * sm(3.4, 4.4, t) * (1 - sm(7.8, 8.6, t));
 const ACTS = [[0, 'TEST 02 / 03', 'Navier–Stokes Fluid'], [3.6, '', 'vorticity confinement'], [8.2, '', 'impulse bursts'], [12, '', 'pressure projection · 24 Jacobi iterations']];
 function overlay(t) {
   const s = H / 1080;
