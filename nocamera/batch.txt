@@ -1,0 +1,9 @@
+# style   seed  seconds  hook (optional, stays on screen the whole loop)
+ink        21   12
+ink         3   12
+ink         8   12
+chrome     11   10
+chrome      8   10
+chrome      4   10
+particles   3   12
+particles  21   12
