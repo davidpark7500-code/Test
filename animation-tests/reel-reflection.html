@@ -354,6 +354,7 @@ window.__render = async (t) => {
   const c = cam(t);
   const JA = joints(poseA(t)), JB = joints(poseB(t)).map(([x, y, z]) => [x, -y, z]);
   const [ac, ah] = bbox(JA), [bc, bh] = bbox(JB);
+  if (q.get('nofig')) { ac[1] = bc[1] = 1e3; ah.fill(.1); bh.fill(.1); }   // empty scene for brand art
   gl.useProgram(RM.p); gl.bindVertexArray(vaoQ); const u = RM.u;
   gl.uniform2f(u.R, W, H); gl.uniform1f(u.T, t); gl.uniform1f(u.ERO, eroR(t)); gl.uniform1f(u.CI, contactI(t));
   gl.uniform1f(u.MIR, mirror(t)); gl.uniform1f(u.STARS, sm(17, 26, t)); setCam(RM, c);
