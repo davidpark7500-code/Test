@@ -32,8 +32,11 @@ I couldn't open the Spring 2026 US Wellness Catalog from this environment. **Che
 | Indoor air | Atmosphere™ | [Confirmed] | Pets, dust, cooking smells |
 | Cookware | iCook™ | [Verify] US availability | Already replacing worn cookware |
 
+## Partner stores
+- **Avellum.** Set up in the app as a partner-store option. I couldn't find any public information on it, so no products are mapped yet. Add them under `stores` in `catalog.js`.
+
 ## Rules for the wellness conversation
-1. **Goals, not conditions.** "More energy" is a goal. "My thyroid is low" is a condition: refer them to their doctor and don't record it.
+1. **Ask freely, but don't diagnose.** Lifestyle questions (energy, sleep, stress, diet) are fair game. If they mention a condition, medication, or pregnancy, tick the safety check and recommend a doctor check before any supplement.
 2. **Use only the support statements printed in the official catalog.** Don't paraphrase them into stronger claims. "Supports restful sleep" ≠ "fixes your insomnia".
 3. **Weight:** never promise pounds, timelines, or "melt fat" outcomes.
 4. **Medications, pregnancy, chronic illness:** "Check with your doctor before adding a supplement." Then move on.

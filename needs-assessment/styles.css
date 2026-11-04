@@ -154,4 +154,6 @@ textarea { resize: vertical; }
   .card, .stat, .mini { break-inside: avoid; }
   textarea { border: none; padding: 0; resize: none; min-height: 3em; }
   textarea:placeholder-shown { display: none; }
+  .chip:not(.on) { display: none; }
 }
+.sat.sm { width: 40px; height: 40px; font-size: .95rem; }

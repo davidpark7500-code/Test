@@ -30,10 +30,12 @@
     a.categories ??= {};
     for (const c of C.categories) a.categories[c.id] = { ...blankCategory(), ...(a.categories[c.id] || {}) };
     a.goals ??= { selected: [], top: "", current: "", words: "", tried: "", openness: "" };
+    a.health ??= { energy: null, stress: null, sleepHours: "", sleepQuality: "", exercise: "", meals: "", water: "", caffeine: "", digestion: "", notes: "", safetyFlag: false };
     a.wrap ??= { pain1: "", pain2: "", pain3: "", followUpDate: "", followUpTime: "", notes: "" };
     a.recs ??= {};
     a.recs.override ??= {};
     a.recs.plan ??= {};
+    a.recs.store ??= {};
     a.status ??= "draft";
     return a;
   }
@@ -72,11 +74,11 @@
   const steps = () => {
     const cats = C.categories.map((c) => c.id);
     const at = cats.indexOf("nutrition");
-    if (at >= 0) cats.splice(at, 0, "goals"); else cats.push("goals");
+    if (at >= 0) cats.splice(at, 0, "health", "goals"); else cats.push("health", "goals");
     return ["intro", "household", ...cats, "wrap"];
   };
   const goalById = (id) => C.goals.find((g) => g.id === id);
-  const STEP_LABEL = { intro: ["Intro", "Intro"], household: ["Household", "Household"], goals: ["🎯", "Wellness goals"], wrap: ["Wrap-up", "Wrap-up"] };
+  const STEP_LABEL = { intro: ["Intro", "Intro"], household: ["Household", "Household"], goals: ["🎯", "Wellness goals"], health: ["🩺", "Health & lifestyle"], wrap: ["Wrap-up", "Wrap-up"] };
 
   // ---------- recommendation engine ----------
   // Scores each category on dissatisfaction, frustrations (weighted by the client's own top priorities),
@@ -136,6 +138,7 @@
         let s = 5;
         if (g.top === gid || g.selected.length === 1) { s += 4; res.reasons.push("Their #1 wellness goal"); } else res.reasons.push("A goal they named");
         if (g.words.trim()) res.reasons.push(`In their words: “${g.words.trim()}”`);
+        for (const sig of healthSignals(a, gid)) { s += sig.pts; res.reasons.push(sig.why); }
         if (g.tried.trim()) { s += 1; res.reasons.push(`Tried before: ${g.tried.trim()}`); }
         if (g.openness === "yes") { s += 3; res.reasons.push("Open to products that support this"); }
         else if (g.openness === "maybe") { s += 1; res.reasons.push("Maybe open to products"); }
@@ -154,6 +157,30 @@
 
     results.sort((x, y) => y.score - x.score);
     return results;
+  }
+
+  // Lifestyle answers that strengthen a goal the client named.
+  function healthSignals(a, gid) {
+    const h = a.health, out = [];
+    const n = (v) => parseFloat(v);
+    const add = (pts, why) => out.push({ pts, why });
+    if (gid === "energy") {
+      if (h.energy != null && h.energy <= 4) add(2, `Rates energy ${h.energy}/10`);
+      if (n(h.caffeine) >= 3) add(1, `${h.caffeine} caffeinated drinks a day`);
+      if (h.sleepQuality === "Poor") add(1, "Poor sleep may be draining energy");
+    }
+    if (gid === "sleep") {
+      if (h.sleepQuality === "Poor" || h.sleepQuality === "Fair") add(2, `Sleep quality: ${h.sleepQuality.toLowerCase()}`);
+      if (n(h.sleepHours) < 6) add(1, `Sleeps about ${h.sleepHours} hrs`);
+    }
+    if (gid === "stress" && h.stress != null && h.stress >= 7) add(2, `Rates stress ${h.stress}/10`);
+    if (gid === "weight" || gid === "gaps") {
+      if (h.meals === "Mostly on the go / fast food" || h.meals === "Skips meals often") add(2, `Eating: ${h.meals.toLowerCase()}`);
+      if (gid === "gaps" && n(h.water) < 4) add(1, `Only ~${h.water} glasses of water a day`);
+    }
+    if ((gid === "weight" || gid === "fitness") && h.exercise) add(gid === "fitness" && h.exercise !== "Rarely" ? 1 : 0, `Exercise: ${h.exercise.toLowerCase()}`);
+    if (gid === "digestive" && h.digestion === "Often uncomfortable") add(2, "Digestion often uncomfortable");
+    return out;
   }
 
   const monthlySpend = (a) =>
@@ -340,6 +367,52 @@
       <button class="btn ghost" data-action="skip" data-cat="${c.id}">Not relevant, skip</button>`;
   }
 
+  function viewHealth(a) {
+    const h = a.health;
+    const scale = (path, cur, lo, hi) => Array.from({ length: 10 }, (_, i) => i + 1).map((n) =>
+      `<button type="button" class="sat sm ${cur === n ? "on" : ""}" data-set="${path}" data-val="${n}" data-num aria-pressed="${cur === n}">${n}</button>`
+    ).join("") + `<span class="muted small sat-legend">1 = ${lo} · 10 = ${hi}</span>`;
+    const pick = (path, cur, list) => `<div class="chips">${list.map((v) =>
+      `<button type="button" class="chip ${cur === v ? "on" : ""}" data-set="${path}" data-val="${esc(v)}" aria-pressed="${cur === v}">${esc(v)}</button>`).join("")}</div>`;
+    return `
+      <h1>🩺 Health & lifestyle</h1>
+      <div class="card script">
+        <div class="label">Transition</div>
+        <p>"Now some questions about you, not your house. There are no right answers. This helps me figure out what's actually worth suggesting."</p>
+      </div>
+      <div class="card">
+        <div class="label">"How are your energy levels during a normal day?"</div>
+        <div class="sat-row">${scale("health.energy", h.energy, "always tired", "great all day")}</div>
+        <div class="label">"How would you rate your stress lately?"</div>
+        <div class="sat-row">${scale("health.stress", h.stress, "very calm", "very stressed")}</div>
+      </div>
+      <div class="card">
+        <div class="label">"How are you sleeping?"</div>
+        ${pick("health.sleepQuality", h.sleepQuality, ["Great", "Good", "Fair", "Poor"])}
+        <label>Hours a night, roughly <input type="number" min="0" max="14" step="0.5" inputmode="decimal" data-path="health.sleepHours" value="${esc(h.sleepHours)}"></label>
+      </div>
+      <div class="card">
+        <div class="label">"What does a typical day of eating look like?"</div>
+        ${pick("health.meals", h.meals, ["Mostly home-cooked", "Mix of home and takeout", "Mostly on the go / fast food", "Skips meals often"])}
+        <div class="grid">
+          <label>Glasses of water a day <input type="number" min="0" inputmode="numeric" data-path="health.water" value="${esc(h.water)}"></label>
+          <label>Coffee / energy drinks a day <input type="number" min="0" inputmode="numeric" data-path="health.caffeine" value="${esc(h.caffeine)}"></label>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label">"How often do you get to exercise or move?"</div>
+        ${pick("health.exercise", h.exercise, ["Rarely", "1–2× a week", "3–4× a week", "5+× a week"])}
+        <div class="label">"How's your digestion, generally?"</div>
+        ${pick("health.digestion", h.digestion, ["Usually fine", "Sometimes off", "Often uncomfortable"])}
+        <label>Anything else they shared <input type="text" data-path="health.notes" value="${esc(h.notes)}" placeholder="In their words"></label>
+      </div>
+      <div class="card">
+        <div class="label">Safety check</div>
+        <p class="small muted">"Are you on any prescription medications, pregnant or nursing, or managing an ongoing health condition?" Record yes or no only. You don't need details.</p>
+        ${check("health.safetyFlag", h.safetyFlag, "Yes: they should check with their doctor before starting any supplement")}
+      </div>`;
+  }
+
   function viewGoals(a) {
     const g = a.goals;
     const chips = C.goals.map((x) => {
@@ -357,7 +430,7 @@
     ).join("");
     return `
       <h1>🎯 Wellness goals</h1>
-      <div class="caution">⚠️ Ask about <strong>goals</strong>, not medical conditions. If they bring up a diagnosis, medication, pregnancy, or ongoing symptoms, don't write it down. Say: <em>"That's a great question for your doctor. Check with them before adding anything new."</em></div>
+      <div class="caution">⚠️ Ask freely. Two lines: don't diagnose, and don't say a product treats a condition. Use the catalog's support wording.</div>
       <div class="card prompts">
         <div class="label">Ask</div>
         <ul>
@@ -421,7 +494,7 @@
     idx = Math.max(0, Math.min(idx, s.length - 1));
     if (idx > 0 && !consentOk(a)) idx = 0;
     const id = s[idx];
-    const body = id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : id === "goals" ? viewGoals(a) : viewCategory(a, catById(id));
+    const body = id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : id === "goals" ? viewGoals(a) : id === "health" ? viewHealth(a) : viewCategory(a, catById(id));
     const last = idx === s.length - 1;
     const blocked = id === "intro" && !consentOk(a);
     return `
@@ -433,6 +506,19 @@
           ? `<a class="btn" href="#/a/${a.id}/summary">See recommendations →</a>`
           : `<a class="btn ${blocked ? "disabled" : ""}" ${blocked ? 'aria-disabled="true"' : `href="#/a/${a.id}/${idx + 1}"`}>Next →</a>`}
       </div>`;
+  }
+
+  function healthLine(a) {
+    const h = a.health, bits = [];
+    if (h.energy != null) bits.push(`Energy ${h.energy}/10`);
+    if (h.stress != null) bits.push(`Stress ${h.stress}/10`);
+    if (h.sleepQuality || h.sleepHours) bits.push(`Sleep ${[h.sleepQuality, h.sleepHours && h.sleepHours + " hrs"].filter(Boolean).join(", ")}`);
+    if (h.meals) bits.push(h.meals);
+    if (h.exercise) bits.push(`Exercise ${h.exercise}`);
+    if (h.water) bits.push(`${h.water} glasses water`);
+    if (h.caffeine) bits.push(`${h.caffeine} caffeine/day`);
+    if (h.digestion) bits.push(`Digestion: ${h.digestion.toLowerCase()}`);
+    return bits.length ? `<p class="small"><span class="muted">Health snapshot:</span> ${bits.map(esc).join(" · ")}${h.notes ? ` · “${esc(h.notes)}”` : ""}</p>` : "";
   }
 
   function viewSummary(a) {
@@ -451,7 +537,13 @@
         </header>
         ${x.r.current ? `<p class="small"><span class="muted">Uses now:</span> ${esc(x.r.current)}${x.r.spend ? ` · ~${money(+x.r.spend)}/mo` : ""}</p>` : ""}
         <ul class="reasons">${x.reasons.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
-        <p class="small"><span class="muted">Look at:</span> ${x.cat.lines.map(esc).join(", ")}</p>
+        <p class="small"><span class="muted">Look at (Amway):</span> ${x.cat.lines.map(esc).join(", ")}</p>
+        ${C.stores.filter((st) => st.partner && st.lines?.[x.cat.id]?.length).map((st) => `<p class="small"><span class="muted">Look at (${esc(st.name)}):</span> ${st.lines[x.cat.id].map(esc).join(", ")}</p>`).join("")}
+        <div class="small muted">Get it from</div>
+        <div class="chips">${C.stores.map((st) => {
+          const on = (a.recs.store[x.cat.id] || []).includes(st.id);
+          return `<button type="button" class="chip ${on ? "on" : ""}" data-toggle="recs.store.${x.cat.id}" data-val="${st.id}" aria-pressed="${on}">${esc(st.name)}${st.partner ? " <span class='muted small'>(partner)</span>" : ""}</button>`;
+        }).join("")}</div>
         <p class="small tip">💡 ${esc(x.cat.talkingPoint)}</p>
         <label class="small">Products I'll bring
           <textarea rows="2" data-path="recs.plan.${x.cat.id}" placeholder="Specific products + cost-per-use vs. what they use now">${esc(a.recs.plan[x.cat.id])}</textarea>
@@ -487,6 +579,7 @@
         </div>
       </div>
 
+      ${a.health.safetyFlag ? `<div class="caution"><strong>🩺 Doctor check first.</strong> They take prescription medication, are pregnant/nursing, or manage an ongoing condition. Before recommending any supplement, suggest they show the list to their doctor or pharmacist.</div>` : ""}
       <div class="stats">
         <div class="stat"><div class="label">Follow-up</div><div class="v">${a.consent.followUpOk ? esc(fmtFollowUp(a.wrap) || "Not scheduled") : "Declined"}</div></div>
         <div class="stat"><div class="label">Top priorities</div><div class="v">${cl.values.length ? cl.values.map((v, i) => `${i + 1}. ${esc(valueLabel(v))}`).join("<br>") : "—"}</div></div>
@@ -494,6 +587,7 @@
       </div>
 
       ${pains.length ? `<section class="card"><div class="label">In their words, what they want better</div><ol class="pains">${pains.map((p) => `<li>${esc(p)}</li>`).join("")}</ol></section>` : ""}
+      ${healthLine(a)}
       ${a.goals.selected.length ? `<p class="small"><span class="muted">Wellness goals:</span> ${a.goals.selected.map((id) => goalById(id)).filter(Boolean).map((x) => (a.goals.top === x.id ? "⭐ " : "") + esc(x.label)).join(", ")}</p>` : ""}
       ${cl.sensitivities.length ? `<p class="small"><span class="muted">Preferences:</span> ${cl.sensitivities.map(esc).join(", ")}</p>` : ""}
 
@@ -585,7 +679,7 @@
       if ("num" in el.dataset) v = Number(v);
       if ("bool" in el.dataset) v = v === "true";
       // Tapping the selected option again clears it.
-      if (getPath(a, el.dataset.set) === v && !("bool" in el.dataset)) v = el.dataset.set.endsWith("satisfaction") ? null : "";
+      if (getPath(a, el.dataset.set) === v && !("bool" in el.dataset)) v = "num" in el.dataset ? null : "";
       setPath(a, el.dataset.set, v);
       touch(a); render(); return;
     }
@@ -674,7 +768,7 @@
       if (/^[=+\-@]/.test(s)) s = "'" + s; // block spreadsheet formula injection
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const head = ["Name", "Phone", "Email", "Status", "Assessed", "Follow-up OK", "Follow-up date", "Follow-up time", "Top priorities", "Wellness goals", "Focus categories", "Pain points", "Reported monthly spend"];
+    const head = ["Name", "Phone", "Email", "Status", "Assessed", "Follow-up OK", "Follow-up date", "Follow-up time", "Top priorities", "Wellness goals", "Focus categories", "Pain points", "Reported monthly spend", "Doctor check flag", "Partner store items"];
     const rows = Object.values(db).map(normalize).map((a) => [
       a.client.name, a.client.phone, a.client.email, a.status, a.createdAt.slice(0, 10),
       a.consent.followUpOk ? "Yes" : "No", a.wrap.followUpDate, a.wrap.followUpTime,
@@ -683,6 +777,8 @@
       recommend(a).filter((x) => x.bucket === "focus").map((x) => x.cat.name).join("; "),
       [a.wrap.pain1, a.wrap.pain2, a.wrap.pain3].filter(Boolean).join("; "),
       monthlySpend(a) || "",
+      a.health.safetyFlag ? "Yes" : "",
+      Object.entries(a.recs.store).filter(([, v]) => v.some((id) => C.stores.find((st) => st.id === id)?.partner)).map(([k]) => k.replace("goal:", "Goal: ")).join("; "),
     ]);
     return [head, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
   }

@@ -62,6 +62,16 @@ window.CATALOG = {
       talkingPoint: "Talk with the parent about the kids' nutrition. Never pressure on children's health." },
   ],
 
+  // Where a recommendation can be fulfilled. Add partner stores here.
+  // "lines" (optional) per category/goal id lists what to look at in that store.
+  stores: [
+    { id: "amway", name: "Amway" },
+    { id: "avellum", name: "Avellum", partner: true,
+      lines: {
+        // Fill in with Avellum products, e.g.  "goal:sleep": ["…"],  laundry: ["…"]
+      } },
+  ],
+
   categories: [
     {
       id: "home",
@@ -175,7 +185,7 @@ window.CATALOG = {
       ],
       lines: ["Nutrilite™ supplements", "XS™ energy drinks & sports nutrition"],
       talkingPoint: "Talk about sourcing, quality, and convenience. Never claim a product treats or prevents a condition.",
-      caution: "Ask about preferences, not health conditions. Don't record diagnoses or medications. Health questions go to their doctor.",
+      caution: "If the safety check on the Health screen is ticked, they should check with their doctor before starting any supplement.",
     },
     {
       id: "water",
