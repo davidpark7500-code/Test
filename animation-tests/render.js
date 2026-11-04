@@ -11,13 +11,18 @@ const [page, out, secs, fps = 30, W = 1920, H = 1080, f0, f1] = process.argv.sli
   await p.waitForFunction(() => window.__ready === true);
   const N = Math.round(secs * fps), a = f0 ? +f0 : 0, z = f1 ? +f1 : N;
   const still = out.endsWith('.png');
-  const ff = still ? null : spawn('ffmpeg', ['-y', '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'png', '-i', '-',
+  const seq = out.endsWith('/');   // resumable: one JPEG per frame, existing frames are skipped
+  if (seq) require('fs').mkdirSync(out, { recursive: true });
+  const ff = (still || seq) ? null : spawn('ffmpeg', ['-y', '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'png', '-i', '-',
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '16', '-preset', 'slow', '-tune', 'animation', '-movflags', '+faststart', out],
     { stdio: ['pipe', 'ignore', 'inherit'] });
   const t0 = Date.now();
   for (let f = a; f < z; f++) {
-    const d = await p.evaluate(async t => { await window.__render(t); return document.getElementById('c').toDataURL('image/png'); }, f / fps);
+    const fname = seq ? `${out}${String(f).padStart(5, '0')}.jpg` : null;
+    if (seq && require('fs').existsSync(fname)) continue;
+    const d = await p.evaluate(async ([t, jpg]) => { await window.__render(t); return document.getElementById('c').toDataURL(jpg ? 'image/jpeg' : 'image/png', 0.95); }, [f / fps, seq]);
     const buf = Buffer.from(d.split(',')[1], 'base64');
+    if (seq) { require('fs').writeFileSync(fname + '.tmp', Buffer.from(d.split(',')[1], 'base64')); require('fs').renameSync(fname + '.tmp', fname); if (f % 30 === 0) console.log(`frame ${f}`); continue; }
     if (still) { require('fs').writeFileSync(out.replace('.png', `_${f}.png`), buf); continue; }
     if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
     if (f % 30 === 0) console.log(`frame ${f}/${z}  ${((Date.now() - t0) / 1000 / (f - a + 1)).toFixed(2)}s/frame`);
