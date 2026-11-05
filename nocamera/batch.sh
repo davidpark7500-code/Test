@@ -12,7 +12,9 @@ one() {
   Q="style=$style&seed=$seed&dur=$dur&ss=$SS&hook=$enc" node ../animation-tests/render.js loop.html "$fr" "$dur" 30 1080 1920 > "out/frames/${style}-${seed}.log" 2>&1
   local n=$(ls "$fr"*.jpg 2>/dev/null | wc -l); local want=$(( dur * 30 ))
   [[ "$n" -eq "$want" ]] || { echo "incomplete $name ($n/$want)"; return; }
-  ffmpeg -v error -y -framerate 30 -i "$fr%05d.jpg" -c:v libx264 -preset slow -crf 17 -pix_fmt yuv420p -movflags +faststart "$name" && echo "done $name"
+  ffmpeg -v error -y -framerate 30 -i "$fr%05d.jpg" -c:v libx264 -preset slow -crf 19 -maxrate 14M -bufsize 28M -pix_fmt yuv420p -movflags +faststart "$name" && echo "done $name"
 }
 export -f one; export SS
-grep -v '^\s*#' "$1" | grep -v '^\s*$' | xargs -P 4 -L 1 bash -c 'one "$@"' _
+# one NUL-separated line per job, passed as a single argument so quotes/apostrophes in hooks survive
+grep -v '^\s*#' "$1" | grep -v '^\s*$' | tr '\n' '\0' | \
+  xargs -0 -P 4 -n 1 bash -c 'read -r st sd du hk <<< "$1"; one "$st" "$sd" "$du" "$hk"' _
