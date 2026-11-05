@@ -445,7 +445,7 @@
       </div>
       <div class="card script">
         <div class="label">Read aloud</div>
-        <p>"Amway also partners with ${esc(P.name)}, a clinician-led telehealth service. You can start with a blood panel to see your own numbers, and a licensed clinician reviews it with you and decides whether anything, like peptide therapy, is a fit. I don't make that call; they do."</p>
+        <p>"Amway has a brand new partnership with ${esc(P.name)}, a clinician-led telehealth service plus online pharmacy. You can start with a blood panel via mail or chat with a licensed tele-health clinician to determine whether additional support like peptide therapy, is a fit."</p>
       </div>
       ${fit.goals.length ? `<p class="small"><span class="muted">Related goals they named:</span> ${fit.goals.map(esc).join(", ")}</p>` : ""}
       ${a.health.safetyFlag ? `<div class="caution">Their safety check is ticked. If they're interested, they must tell the clinician about their medications or condition.</div>` : ""}
