@@ -12,7 +12,7 @@
     try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; }
   };
   let db = readJSON(STORE, {});
-  let settings = readJSON(SETTINGS, { iboName: "" });
+  let settings = readJSON(SETTINGS, {});
   // Storage can be unavailable (private mode, embedded previews); keep working in memory.
   const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* in-memory only */ } };
   const persist = () => safeSet(STORE, JSON.stringify(db));
@@ -221,15 +221,9 @@
     const unsaved = list.filter((a) => !isSaved(a)).length;
     return `
       <section class="hero">
-        <h1 class="hello">Hello${settings.iboName.trim() ? ", " + esc(settings.iboName.trim().split(/\s+/)[0]) : ""}<span class="dot-accent">.</span></h1>
+        <h1 class="hello">Hello<span class="dot-accent">.</span></h1>
         <p class="muted">Learn what they use and what's not working, then build the follow-up from their answers.</p>
         <button class="btn big" data-action="new">Start a new assessment</button>
-      </section>
-
-      <section class="card settings">
-        <label>Your name (used in the intro script)
-          <input type="text" data-setting="iboName" value="${esc(settings.iboName)}" placeholder="e.g. David Park" autocomplete="name">
-        </label>
       </section>
 
       ${unsaved ? `<div class="caution"><strong>${unsaved} assessment${unsaved === 1 ? " isn't" : "s aren't"} saved to your phone yet.</strong> If browser data is cleared, ${unsaved === 1 ? "it's" : "they're"} gone. Tap <em>Save to phone</em> on each one, or <em>Save all</em> below.</div>` : ""}
@@ -238,7 +232,7 @@
 
       <section class="card data-tools">
         <h3>Your data</h3>
-        <p class="small muted">The app keeps everything in this browser. Saved copies go to your phone's Files (or Drive) and survive clearing browser data. To bring them back, tap <em>Load saved files</em> and pick one or more. Saved files contain clients' health answers, so keep them in a private folder, and delete records for people who don't move forward.</p>
+        <p class="small muted">The app keeps everything in this browser. Saved copies go wherever you pick in your phone's share sheet (Files, Google Drive, or Dropbox if the app is installed) and survive clearing browser data. To bring them back, tap <em>Load saved files</em> and pick one or more. Saved files contain clients' health answers, so keep them in a private folder, and delete records for people who don't move forward.</p>
         <div class="row wrap">
           <button class="btn ghost" data-action="export">Save all to phone</button>
           <button class="btn ghost" data-action="import">Load saved files</button>
@@ -264,26 +258,24 @@
       <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>`;
   }
 
-  const consentOk = (a) => a.consent.disclosed && a.consent.storeConsent;
+  // Only requirement to continue: they're OK with notes being taken.
+  const consentOk = (a) => !!a.consent.storeConsent;
 
   function check(path, checked, label, extra = "") {
     return `<label class="check ${extra}"><input type="checkbox" data-path="${path}" ${checked ? "checked" : ""}><span>${label}</span></label>`;
   }
 
   function viewIntro(a) {
-    const me = settings.iboName.trim() || "[your name]";
     return `
       <h1>Before you start</h1>
       <div class="card script">
         <div class="label">Read aloud</div>
-        <p>"Thanks for making time. Just so you know up front: I'm ${esc(me)}, and I'm an independent Amway Business Owner.</p>
-        <p>Today isn't a sales pitch. I'd like to learn what you use around the house now, what you like, and what bugs you. If I think something could genuinely work better or cost less, I'll put together a short list for a second meeting. If what you have works, I'll tell you to keep it.</p>
-        <p>Is it OK if I take a few notes? They stay on my device, and you can ask me to delete them anytime."</p>
+        <p>"Thanks for making time. Today isn't a sales pitch. I'd like to learn what you use around the house now, what you like, and what bugs you. If I think something could genuinely work better or cost less, I'll put together a short list for a second meeting. If what you have works, I'll tell you to keep it.</p>
+        <p>Mind if I take a few notes as we go?"</p>
       </div>
       <div class="card">
-        ${check("consent.disclosed", a.consent.disclosed, "I said I'm an Amway Business Owner and explained why we're meeting")}
-        ${check("consent.storeConsent", a.consent.storeConsent, "They agreed to notes being stored on this device")}
-        ${!consentOk(a) ? `<p class="small warn">Both boxes are required before continuing.</p>` : ""}
+        ${check("consent.storeConsent", a.consent.storeConsent, "They're OK with me taking notes")}
+        ${!consentOk(a) ? `<p class="small warn">Tick this to continue.</p>` : ""}
       </div>`;
   }
 

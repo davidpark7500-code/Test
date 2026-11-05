@@ -5,7 +5,7 @@ A mobile-friendly web app for running a needs-first first appointment and prepar
 **Open `index.html` in a browser.** There is no build step and no server. All client data stays in that browser's local storage on that device.
 
 ## Flow
-1. **Intro.** A read-aloud script that discloses you're an Amway Business Owner and asks permission to take notes. You can't continue until both are confirmed.
+1. **Intro.** A short read-aloud opener that asks if it's OK to take notes. You can't continue until that's ticked.
 2. **Household.** Contact details, household size, kids and pets, the client's top 2 priorities (in order), and stated preferences.
 3. **Category walk-through.** Home cleaning, laundry, dishes, personal care, skin care, **health & lifestyle**, **wellness goals**, **Avellum Health**, vitamins/supplements/drinks, water & air, and kitchen. For each one: what they use now, satisfaction (1–5), monthly spend, frustrations, and whether they're open to switching. Any category can be skipped.
    - **Health & lifestyle:** energy and stress (1–10), sleep quality and hours, eating pattern, water, caffeine, exercise, digestion, plus a yes/no safety check (prescription meds, pregnancy/nursing, ongoing condition). A "yes" puts a doctor-check banner on the summary.
@@ -29,7 +29,7 @@ Edit `catalog.js` to change categories, wellness goals, questions, frustration o
 
 ## Data
 - The app keeps everything in this browser on this device.
-- **Save to phone:** on each summary (and on **Mark complete & save**), this opens the phone's share sheet. Choose *Save to Files* or Drive. On a computer it downloads instead. The saved `.html` file is a readable copy of the notes, and it also carries the data, so it survives clearing browser data.
+- **Save to phone:** on each summary (and on **Mark complete & save**), this opens the phone's share sheet. Choose *Save to Files*, Google Drive, or Dropbox (Dropbox shows up when its app is installed). On a computer it downloads instead. The saved `.html` file is a readable copy of the notes, and it also carries the data, so it survives clearing browser data.
 - **Load saved files:** pick one or more saved files (or old `.json` backups) to bring assessments back.
 - The home screen flags any assessment that isn't saved to the phone, or that has changed since it was last saved.
 - **Save all to phone** saves every assessment in one file. **Export follow-ups (CSV)** makes a spreadsheet of clients and follow-up dates.
