@@ -226,6 +226,20 @@
         <button class="btn big" data-action="new">Start a new assessment</button>
       </section>
 
+      <section class="card how">
+        <details ${list.length ? "" : "open"}>
+          <summary><span class="label">New here? Watch how it works</span> <span class="muted small">1:24</span></summary>
+          <video src="video/how-it-works.mp4" poster="video/poster.jpg" controls playsinline preload="metadata"></video>
+          <ol class="process small">
+            <li><b>Tell your story.</b> Your why: getting out of debt, saving for a house, helping Mom retire. Share your goal, never income promises.</li>
+            <li><b>Explain today's goal.</b> Find needs in their day-to-day life. No recommendations today.</li>
+            <li><b>Ask questions and listen.</b> The focus is on them and their goals.</li>
+            <li><b>Schedule the follow-up</b> with recommendations built around their answers.</li>
+          </ol>
+          <p class="small muted">The goal is a win-win: genuinely make their life better while they help you reach your goals. Build for the long term, and do such a good job they introduce you to friends you can help too.</p>
+        </details>
+      </section>
+
       ${unsaved ? `<div class="caution"><strong>${unsaved} assessment${unsaved === 1 ? " isn't" : "s aren't"} saved to your phone yet.</strong> If browser data is cleared, ${unsaved === 1 ? "it's" : "they're"} gone. Tap <em>Save to phone</em> on each one, or <em>Save all</em> below.</div>` : ""}
       <h2>Clients <span class="muted">(${list.length})</span></h2>
       ${list.length ? `<ul class="client-list">${rows}</ul>` : `<p class="muted empty">No assessments yet.</p>`}
@@ -268,9 +282,13 @@
   function viewIntro(a) {
     return `
       <h1>Before you start</h1>
+      <div class="card">
+        <div class="label">1 · Tell your story</div>
+        <p class="small">Share your why in your own words: getting out of debt, saving up for a house, helping Mom retire. Share your goal, never income promises.</p>
+      </div>
       <div class="card script">
-        <div class="label">Read aloud</div>
-        <p>"Thanks for making time. Today isn't a sales pitch. I'd like to learn what you use around the house now, what you like, and what bugs you. If I think something could genuinely work better or cost less, I'll put together a short list for a second meeting. If what you have works, I'll tell you to keep it.</p>
+        <div class="label">2 · Explain today's goal (read aloud)</div>
+        <p>"Thanks for making time. Today isn't a sales pitch, and I won't be recommending anything today. I'd like to learn what you use around the house now, what you like, and what bugs you. If I think something could genuinely work better or cost less, I'll put together a short list for a second meeting. If what you have works, I'll tell you to keep it.</p>
         <p>Mind if I take a few notes as we go?"</p>
       </div>
       <div class="card">
@@ -845,7 +863,7 @@
   function saveToPhone(list) {
     if (!list.length) return;
     const one = list.length === 1;
-    const name = one ? `Needs-Assessment_${slug(list[0].client.name)}_${today()}.html` : `Needs-Assessments_all-${list.length}_${today()}.html`;
+    const name = one ? `Customer-Need-Assessment_${slug(list[0].client.name)}_${today()}.html` : `Customer-Need-Assessments_all-${list.length}_${today()}.html`;
     const html = exportHTML(list);
     const markSaved = () => { const now = new Date().toISOString(); list.forEach((a) => { db[a.id].savedAt = now; }); persist(); render(); };
     // Phones: open the share sheet (Save to Files / Drive). Must run inside the tap.
@@ -896,12 +914,12 @@
       </article>`;
     }).join("");
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Needs Assessment${list.length === 1 ? " · " + esc(list[0].client.name || "") : "s"}</title>
+<title>Customer Need Assessment${list.length === 1 ? " · " + esc(list[0].client.name || "") : "s"}</title>
 <style>body{font:15px/1.55 -apple-system,"Helvetica Neue",Arial,sans-serif;color:#0b0b0b;max-width:680px;margin:0 auto;padding:24px}
 h1{font-size:26px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 6px;border-top:1.5px solid #0b0b0b;padding-top:10px}h3{font-size:15px;margin:12px 0 2px}
 .meta{color:#5b6563;margin:0}.flag{background:#eaf6f2;padding:10px 12px}ul{padding-left:18px;margin:4px 0}article{padding-bottom:28px;margin-bottom:28px;border-bottom:6px solid #bde3da}
 .note{font-size:12px;color:#5b6563}</style></head><body>
-<p class="note">Saved from Needs Assessment on ${esc(new Date().toLocaleString())}. To restore, open the app and tap “Load saved files”. Contains private client information.</p>
+<p class="note">Saved from Customer Need Assessment on ${esc(new Date().toLocaleString())}. To restore, open the app and tap “Load saved files”. Contains private client information.</p>
 ${docs}
 <script type="application/json" id="na-data">${data}</script>
 </body></html>`;

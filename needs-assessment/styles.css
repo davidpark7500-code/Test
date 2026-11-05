@@ -171,3 +171,11 @@ body.done-page::after { background: #fff; clip-path: polygon(0 0, 100% 100%, 0 1
 
 .pill.saved { background: var(--mint); }
 .pill.unsaved { background: #fde8e4; color: #8a1f12; }
+
+/* How-it-works video */
+.how details summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: baseline; }
+.how details summary::-webkit-details-marker { display: none; }
+.how details summary .label { margin: 0; text-decoration: underline; text-underline-offset: 4px; }
+.how video { display: block; width: 100%; max-width: 340px; aspect-ratio: 9 / 16; background: #000; margin: 14px 0; }
+.process { padding-left: 1.2rem; margin: 0 0 10px; }
+.process li { margin-bottom: 6px; }
