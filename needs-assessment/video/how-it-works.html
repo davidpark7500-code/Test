@@ -219,26 +219,15 @@
       case "network": {
         kicker(s.kicker, X, 560, lt);
         const y = textBlock(s.headline, X, 700, { size: 112, lt, delay: 0.1, accentDot: true });
-        // A spiderweb, not a tree: you at the hub, everyone linked around you.
+        // A circle, not a tree: you in the center, everyone around you.
         const cx = W / 2, cy = y + 250, R = 235;
         const at = (deg, r) => [cx + Math.cos(deg * Math.PI / 180) * r, cy + Math.sin(deg * Math.PI / 180) * r];
         const you = [cx, cy], angles = [-60, 0, 60, 120, 180, 240];
         const [client, ...friends] = angles.map((d) => at(d, R));
         const line = (a, b, p) => { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(a[0] + (b[0] - a[0]) * p, a[1] + (b[1] - a[1]) * p); ctx.stroke(); };
-        // Threads: 12 spokes, then rings that sag toward the hub between spokes.
-        ctx.save(); ctx.strokeStyle = MUTED; ctx.lineWidth = 3;
-        const web = appear(lt, 0.3, 1.2);
-        for (let k = 0; k < 12; k++) line(you, at(k * 30, R), web);
-        [0.4, 0.7, 1].forEach((q, n) => {
-          const a = appear(lt, 0.7 + n * 0.35, 0.8);
-          ctx.save(); ctx.globalAlpha *= a;
-          for (let k = 0; k < 12; k++) {
-            const p0 = at(k * 30, R * q), p1 = at(k * 30 + 30, R * q), c = at(k * 30 + 15, R * q * 0.9);
-            ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.quadraticCurveTo(c[0], c[1], p1[0], p1[1]); ctx.stroke();
-          }
-          ctx.restore();
-        });
-        ctx.restore();
+        // A soft circle grows outward as each person joins.
+        const grow = 0.45 * appear(lt, 0.6, 0.8) + 0.2 * appear(lt, 1.5, 0.8) + 0.35 * appear(lt, 2.8, 2.0);
+        ctx.fillStyle = MINT_SOFT; ctx.beginPath(); ctx.arc(cx, cy, R * grow, 0, 7); ctx.fill();
         ctx.lineWidth = 6; ctx.strokeStyle = INK;
         line(you, client, appear(lt, 1.0, 0.7));
         friends.forEach((f, k) => line(you, f, appear(lt, 2.4 + k * 0.3, 0.6)));
