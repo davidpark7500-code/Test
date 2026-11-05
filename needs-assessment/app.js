@@ -228,8 +228,9 @@
 
       <section class="card how">
         <details ${list.length ? "" : "open"}>
-          <summary><span class="label">New here? Watch how it works</span> <span class="muted small">1:24</span></summary>
-          <video src="video/how-it-works.mp4" poster="video/poster.jpg" controls playsinline preload="metadata"></video>
+          <summary><span class="label">New here? Watch how it works</span> <span class="muted small">1:23</span></summary>
+          <video src="video/how-it-works.mp4" poster="video/poster.jpg" title="How it works (voice: elevenlabs.io)" controls playsinline preload="metadata"></video>
+          <p class="small muted">Voice: elevenlabs.io</p>
           <ol class="process small">
             <li><b>Tell your story.</b> Your why: getting out of debt, saving for a house, helping Mom retire. Share your goal, never income promises.</li>
             <li><b>Explain today's goal.</b> Find needs in their day-to-day life. No recommendations today.</li>

@@ -5,7 +5,7 @@ A mobile-friendly web app for running a needs-first first appointment and prepar
 **Open `index.html` in a browser.** There is no build step and no server. All client data stays in that browser's local storage on that device.
 
 ## How it works (training video)
-`video/how-it-works.mp4` is an 84-second vertical video, shown on the app's home screen. It covers the mindset and the four-step process: tell your story, explain today's goal, ask questions and listen, and schedule the follow-up.
+`video/how-it-works.mp4` is an 83-second vertical video, shown on the app's home screen. It covers the mindset and the four-step process: tell your story, explain today's goal, ask questions and listen, and schedule the follow-up.
 - Edit the wording in `video/scenes.js`, then re-render with `node video/render.js video/how-it-works.mp4` (needs Playwright and ffmpeg).
 - **Voiceover (ElevenLabs):** `ELEVENLABS_API_KEY=... ELEVENLABS_VOICE_ID=... node video/make-voice.js` writes one clip per scene to `video/audio/`. Running `render.js` again then times each scene to its clip and mixes in the voice. Without clips, the video is silent with captions.
 

@@ -28,7 +28,7 @@ const total = durations.reduce((a, b) => a + b, 0);
   if (hasAudio) {
     SCENES.forEach((_, i) => args.push("-i", clip(i)));
     const parts = SCENES.map((_, i) => `[${i + 1}:a]adelay=${Math.round(LEAD * 1000)}:all=1,apad,atrim=0:${durations[i].toFixed(3)}[a${i}]`).join(";");
-    args.push("-filter_complex", `${parts};${SCENES.map((_, i) => `[a${i}]`).join("")}concat=n=${SCENES.length}:v=0:a=1[aout]`, "-map", "0:v", "-map", "[aout]", "-c:a", "aac", "-b:a", "160k");
+    args.push("-filter_complex", `${parts};${SCENES.map((_, i) => `[a${i}]`).join("")}concat=n=${SCENES.length}:v=0:a=1[aout]`, "-map", "0:v", "-map", "[aout]", "-c:a", "aac", "-b:a", "160k", "-metadata", "title=How it works (voice: elevenlabs.io)");
   }
   args.push("-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "22", "-preset", "medium", "-movflags", "+faststart", "-t", total.toFixed(3), OUT);
   const ff = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "inherit"] });
