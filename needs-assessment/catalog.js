@@ -72,7 +72,7 @@ window.CATALOG = {
     url: "https://www.amway.com/en_US/avellum-health",
     // Wellness goals that make Avellum worth mentioning.
     goals: ["energy", "sleep", "weight", "fitness", "aging", "gaps"],
-    note: "Referral only. Avellum's licensed clinician decides whether any protocol fits. Never recommend a specific peptide. Ozempic and GLP-1s are named only to start the conversation: don't say Avellum offers them or that they'll work for this person. Have them order through Amway's Avellum page so the partner discount applies.",
+    note: "Referral only. Avellum's licensed clinician decides whether any protocol fits. Never recommend a specific peptide. Have them order through Amway's Avellum page so the partner discount applies.",
   },
 
   categories: [
