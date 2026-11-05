@@ -439,10 +439,6 @@
     const fit = partnerFit(a);
     return `
       <h1>${esc(P.name)}</h1>
-      <div class="card">
-        <div class="label">"Have you heard of things like Ozempic, GLP-1s, or other peptide therapies? You may have heard people use them for all kinds of things, like weight loss, better sleep, or building muscle. Any interest in learning more?"</div>
-        ${pick("avellum.peptides", v.peptides, [["interested", "Interested"], ["curious", "Curious, want to learn"], ["no", "Not interested"]])}
-      </div>
       <div class="card script">
         <div class="label">Read aloud</div>
         <p>"Amway has a brand new partnership with ${esc(P.name)}, a clinician-led telehealth service plus online pharmacy. You can start with a blood panel via mail or chat with a licensed telehealth clinician to determine whether additional support like peptide therapy is a fit."</p>
@@ -450,6 +446,8 @@
       ${fit.goals.length ? `<p class="small"><span class="muted">Related goals they named:</span> ${fit.goals.map(esc).join(", ")}</p>` : ""}
       ${a.health.safetyFlag ? `<div class="caution">Their safety check is ticked. If they're interested, they must tell the clinician about their medications or condition.</div>` : ""}
       <div class="card">
+        <div class="label">"Have you heard of things like Ozempic, GLP-1s, or other peptide therapies? You may have heard people use them for all kinds of things, like weight loss, better sleep, or building muscle. Any interest in learning more?"</div>
+        ${pick("avellum.peptides", v.peptides, [["interested", "Interested"], ["curious", "Curious, want to learn"], ["no", "Not interested"]])}
         <div class="label">"When did you last have bloodwork done?"</div>
         ${pick("avellum.bloodwork", v.bloodwork, [["recent", "Within the last year"], ["old", "More than a year ago"], ["never", "Never / not sure"]])}
         <div class="label">"Would you want to see your own numbers so any recommendations are based on your data?"</div>
