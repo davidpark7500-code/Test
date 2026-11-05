@@ -13,8 +13,10 @@
   };
   let db = readJSON(STORE, {});
   let settings = readJSON(SETTINGS, { iboName: "" });
-  const persist = () => localStorage.setItem(STORE, JSON.stringify(db));
-  const persistSettings = () => localStorage.setItem(SETTINGS, JSON.stringify(settings));
+  // Storage can be unavailable (private mode, embedded previews); keep working in memory.
+  const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* in-memory only */ } };
+  const persist = () => safeSet(STORE, JSON.stringify(db));
+  const persistSettings = () => safeSet(SETTINGS, JSON.stringify(settings));
 
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
