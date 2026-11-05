@@ -66,9 +66,19 @@ window.CATALOG = {
   // "lines" (optional) per category/goal id lists what to look at in that store.
   stores: [
     { id: "amway", name: "Amway" },
-    { id: "avellum", name: "Avellum", partner: true,
+    { id: "avellum", name: "Avellum Health", partner: true,
+      // Avellum: telehealth, clinician-reviewed peptide therapy (compounded, NOT FDA-approved),
+      // filled by a partner pharmacy. Two entry points: a longevity blood panel, or a peptide protocol.
+      // You refer; the clinician decides. Never recommend a specific peptide or protocol.
+      // Buy through Amway's Avellum page so the partner discount applies.
+      note: "Referral only. A licensed clinician decides whether any protocol fits. Peptides are compounded prescriptions, not FDA-approved. Order through Amway's Avellum Health page.",
       lines: {
-        // Fill in with Avellum products, e.g.  "goal:sleep": ["…"],  laundry: ["…"]
+        "goal:energy":  ["Longevity blood panel → clinician consult"],
+        "goal:sleep":   ["Longevity blood panel → clinician consult"],
+        "goal:weight":  ["Clinician consult (weight)"],
+        "goal:fitness": ["Clinician consult (recovery)"],
+        "goal:aging":   ["Longevity blood panel → clinician consult"],
+        "goal:gaps":    ["Longevity blood panel (see what's actually low)"],
       } },
   ],
 

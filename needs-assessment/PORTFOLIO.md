@@ -33,7 +33,17 @@ I couldn't open the Spring 2026 US Wellness Catalog from this environment. **Che
 | Cookware | iCook™ | [Verify] US availability | Already replacing worn cookware |
 
 ## Partner stores
-- **Avellum.** Set up in the app as a partner-store option. I couldn't find any public information on it, so no products are mapped yet. Add them under `stores` in `catalog.js`.
+
+### Avellum Health
+- **What it is:** a telehealth company offering **clinician-reviewed peptide therapy**. A licensed clinician reviews each case, a partner pharmacy compounds the medication, and it ships cold-chain. [Confirmed: avellumhealth.com via search]
+- **Entry points:** a **longevity blood panel**, or a **peptide protocol** (e.g. Sermorelin). [Confirmed]
+- **Regulatory status:** the peptides are **compounded medications and are not FDA-approved drugs**, per Avellum's own site. [Confirmed]
+- **Amway relationship:** Amway calls it a personalized wellness company and its **new Partner Store**. Discounts apply only when the customer buys through Amway's Avellum page. [Confirmed: amway.com via search]
+- **Not yet checked:** prices, which states it serves, eligibility rules, and the full protocol list. This environment's network policy blocked the site, so I only saw search snippets.
+
+**How the app uses it:** you can choose Avellum for energy, sleep, weight, fitness/recovery, healthy aging, and nutrition gaps. The app frames it as *a referral to a blood panel or clinician consult*, never as a specific peptide recommendation.
+
+**Why the line matters:** recommending a specific prescription peptide is closer to practicing medicine than to selling a vitamin. Stick to: "There's a clinician-led option through Amway's partner Avellum Health. You can start with a blood panel, and their clinician decides what, if anything, fits you." If the safety check is ticked, they must tell the clinician about their medications or condition.
 
 ## Rules for the wellness conversation
 1. **Ask freely, but don't diagnose.** Lifestyle questions (energy, sleep, stress, diet) are fair game. If they mention a condition, medication, or pregnancy, tick the safety check and recommend a doctor check before any supplement.

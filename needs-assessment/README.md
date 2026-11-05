@@ -22,7 +22,7 @@ Each wellness goal they name is scored too: 5 points, +4 for their #1 goal, +1 o
 See [`PORTFOLIO.md`](PORTFOLIO.md) for the need → brand map and the wellness-conversation rules.
 
 ## Partner stores
-Each focus recommendation has a **Get it from** choice: Amway or a partner store (currently **Avellum**). Add stores, or list a partner's products per category or goal, in the `stores` section of `catalog.js`. The CSV export lists which recommendations go through a partner store.
+Each focus recommendation has a **Get it from** choice: Amway or a partner store (currently **Avellum Health**, Amway's telehealth/peptide partner, framed as a referral to a blood panel or clinician consult). Add stores, or list a partner's products per category or goal, in the `stores` section of `catalog.js`. The CSV export lists which recommendations go through a partner store.
 
 ## Customizing
 Edit `catalog.js` to change categories, wellness goals, questions, frustration options, product lines, and talking points. **Check the product lines against your market's current catalog.**

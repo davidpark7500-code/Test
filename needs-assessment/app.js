@@ -539,6 +539,7 @@
         <ul class="reasons">${x.reasons.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
         <p class="small"><span class="muted">Look at (Amway):</span> ${x.cat.lines.map(esc).join(", ")}</p>
         ${C.stores.filter((st) => st.partner && st.lines?.[x.cat.id]?.length).map((st) => `<p class="small"><span class="muted">Look at (${esc(st.name)}):</span> ${st.lines[x.cat.id].map(esc).join(", ")}</p>`).join("")}
+        ${C.stores.filter((st) => st.note && (a.recs.store[x.cat.id] || []).includes(st.id)).map((st) => `<p class="small caution">⚠️ ${esc(st.name)}: ${esc(st.note)}${a.health.safetyFlag ? " <strong>Their safety check is ticked: they must tell the clinician about their medications or condition.</strong>" : ""}</p>`).join("")}
         <div class="small muted">Get it from</div>
         <div class="chips">${C.stores.map((st) => {
           const on = (a.recs.store[x.cat.id] || []).includes(st.id);
