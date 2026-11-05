@@ -176,7 +176,10 @@ function hookText() {
   const sc = W / 1080; ctx.save(); ctx.font = `500 ${52 * sc}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0,0,0,.75)'; ctx.shadowBlur = 26 * sc; ctx.fillStyle = '#fff';
   const words = HOOK.split(' '), lines = [[]]; for (const w of words) { const L = lines[lines.length - 1]; if (L.length && ctx.measureText([...L, w].join(' ')).width > W * .82) lines.push([w]); else L.push(w); }
-  lines.forEach((l, i) => ctx.fillText(l.join(' '), W / 2, H * .14 + (i - (lines.length - 1) / 2) * 66 * sc)); ctx.restore();
+  lines.forEach((l, i) => {   // soft dark band behind each line keeps light footage readable
+    const y = H * .14 + (i - (lines.length - 1) / 2) * 66 * sc, tw = ctx.measureText(l.join(' ')).width;
+    ctx.save(); ctx.shadowColor = 'transparent'; ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fillRect(W / 2 - tw / 2 - 14 * sc, y - 34 * sc, tw + 28 * sc, 64 * sc); ctx.restore();
+    ctx.fillText(l.join(' '), W / 2, y); }); ctx.restore();
 }
 
 window.__render = async (t) => {
