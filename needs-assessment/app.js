@@ -203,6 +203,7 @@
             <div class="client-name">${esc(a.client.name || "Unnamed client")}</div>
             <div class="muted small">
               <span class="pill ${a.status}">${a.status === "complete" ? "Complete" : "In progress"}</span>
+              ${isSaved(a) ? `<span class="pill saved">Saved to phone</span>` : `<span class="pill unsaved">Not saved to phone</span>`}
               Started ${fmtDate(a.createdAt)}
               ${a.wrap.followUpDate ? ` · Follow-up <strong>${esc(fmtFollowUp(a.wrap))}</strong>` : ""}
             </div>
@@ -211,11 +212,13 @@
           <div class="client-actions">
             <a class="btn ghost" href="#/a/${a.id}/0">Edit</a>
             <a class="btn" href="#/a/${a.id}/summary">Summary</a>
+            ${isSaved(a) ? "" : `<button class="btn ghost" data-action="save" data-id="${a.id}">Save to phone</button>`}
             <button class="btn ghost danger" data-action="delete" data-id="${a.id}" aria-label="Delete ${esc(a.client.name)}">Delete</button>
           </div>
         </li>`;
     }).join("");
 
+    const unsaved = list.filter((a) => !isSaved(a)).length;
     return `
       <section class="hero">
         <h1 class="hello">Hello${settings.iboName.trim() ? ", " + esc(settings.iboName.trim().split(/\s+/)[0]) : ""}<span class="dot-accent">.</span></h1>
@@ -229,15 +232,16 @@
         </label>
       </section>
 
+      ${unsaved ? `<div class="caution"><strong>${unsaved} assessment${unsaved === 1 ? " isn't" : "s aren't"} saved to your phone yet.</strong> If browser data is cleared, ${unsaved === 1 ? "it's" : "they're"} gone. Tap <em>Save to phone</em> on each one, or <em>Save all</em> below.</div>` : ""}
       <h2>Clients <span class="muted">(${list.length})</span></h2>
       ${list.length ? `<ul class="client-list">${rows}</ul>` : `<p class="muted empty">No assessments yet.</p>`}
 
       <section class="card data-tools">
         <h3>Your data</h3>
-        <p class="small muted">Everything stays in this browser. Clearing browser data deletes it, so export a backup regularly. Delete records for people who don't move forward.</p>
+        <p class="small muted">The app keeps everything in this browser. Saved copies go to your phone's Files (or Drive) and survive clearing browser data. To bring them back, tap <em>Load saved files</em> and pick one or more. Saved files contain clients' health answers, so keep them in a private folder, and delete records for people who don't move forward.</p>
         <div class="row wrap">
-          <button class="btn ghost" data-action="export">Backup (JSON)</button>
-          <button class="btn ghost" data-action="import">Restore backup</button>
+          <button class="btn ghost" data-action="export">Save all to phone</button>
+          <button class="btn ghost" data-action="import">Load saved files</button>
           <button class="btn ghost" data-action="csv">Export follow-ups (CSV)</button>
         </div>
       </section>`;
@@ -642,9 +646,10 @@
         <div class="row no-print">
           <a class="btn ghost" href="#/a/${a.id}/1">Edit answers</a>
           <button class="btn ghost" data-action="print">Print prep sheet</button>
+          <button class="btn ghost" data-action="save" data-id="${a.id}">${isSaved(a) ? "Saved ✓ Save again" : "Save to phone"}</button>
           ${a.status === "complete"
             ? `<button class="btn ghost" data-action="reopen">Reopen</button>`
-            : `<button class="btn" data-action="complete">Mark complete</button>`}
+            : `<button class="btn" data-action="complete">Mark complete &amp; save</button>`}
         </div>
       </div>
 
@@ -801,33 +806,114 @@
         break;
       }
       case "reset-overrides": a.recs.override = {}; touch(a); render(); break;
-      case "complete": a.status = "complete"; touch(a); render(); break;
+      case "complete": a.status = "complete"; touch(a); saveToPhone([a]); render(); break;
+      case "save": { const t = db[el.dataset.id]; if (t) saveToPhone([normalize(t)]); break; }
       case "reopen": a.status = "draft"; touch(a); render(); break;
       case "print": window.print(); break;
-      case "export": download(`needs-assessments-backup-${today()}.json`, JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), assessments: db }, null, 2), "application/json"); break;
+      case "export": saveToPhone(Object.values(db).map(normalize)); break;
       case "csv": download(`needs-assessment-followups-${today()}.csv`, toCSV(), "text/csv"); break;
       case "import": importFile.click(); break;
     }
   });
 
-  importFile.addEventListener("change", async () => {
-    const f = importFile.files[0];
-    importFile.value = "";
-    if (!f) return;
-    try {
-      const data = JSON.parse(await f.text());
-      const incoming = data.assessments || data;
-      let n = 0;
-      for (const [id, a] of Object.entries(incoming)) {
-        if (!a || typeof a !== "object" || !a.id) continue;
-        if (!db[id] || (a.updatedAt || "") > (db[id].updatedAt || "")) { db[id] = normalize(a); n++; }
-      }
-      persist(); render();
-      alert(`Restored ${n} assessment${n === 1 ? "" : "s"}.`);
-    } catch {
-      alert("That file doesn't look like a valid backup.");
+  // Reads saved .html copies (data embedded) and older .json backups.
+  function parseSaved(text) {
+    const t = text.trim();
+    if (t.startsWith("<")) {
+      const m = t.match(/<script type="application\/json" id="na-data">([\s\S]*?)<\/script>/);
+      if (!m) throw new Error("no data");
+      return JSON.parse(m[1]); // "<" is stored as \u003c, which JSON decodes
     }
+    return JSON.parse(t);
+  }
+
+  importFile.addEventListener("change", async () => {
+    const files = [...importFile.files];
+    importFile.value = "";
+    if (!files.length) return;
+    let n = 0, bad = 0;
+    for (const f of files) {
+      try {
+        const data = parseSaved(await f.text());
+        const incoming = data.assessments || data;
+        for (const [id, a] of Object.entries(incoming)) {
+          if (!a || typeof a !== "object" || !a.id) continue;
+          if (!db[id] || (a.updatedAt || "") >= (db[id].updatedAt || "")) { db[id] = normalize(a); db[id].savedAt = db[id].savedAt || a.updatedAt; n++; }
+        }
+      } catch { bad++; }
+    }
+    persist(); render();
+    alert(`Loaded ${n} assessment${n === 1 ? "" : "s"}.${bad ? ` ${bad} file${bad === 1 ? " wasn't" : "s weren't"} a saved assessment.` : ""}`);
   });
+
+  // ---------- save to phone ----------
+  const isSaved = (a) => !!a.savedAt && a.savedAt >= a.updatedAt;
+  const slug = (s) => (s || "client").trim().replace(/[^\w]+/g, "-").replace(/^-|-$/g, "") || "client";
+
+  function saveToPhone(list) {
+    if (!list.length) return;
+    const one = list.length === 1;
+    const name = one ? `Needs-Assessment_${slug(list[0].client.name)}_${today()}.html` : `Needs-Assessments_all-${list.length}_${today()}.html`;
+    const html = exportHTML(list);
+    const markSaved = () => { const now = new Date().toISOString(); list.forEach((a) => { db[a.id].savedAt = now; }); persist(); render(); };
+    // Phones: open the share sheet (Save to Files / Drive). Must run inside the tap.
+    try {
+      const file = new File([html], name, { type: "text/html" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: name }).then(markSaved).catch((e) => {
+          if (e && e.name === "AbortError") return; // they cancelled
+          download(name, html, "text/html"); markSaved();
+        });
+        return;
+      }
+    } catch { /* fall through to download */ }
+    download(name, html, "text/html");
+    markSaved();
+  }
+
+  // A readable copy of the notes that also carries the data, so it can be loaded back in.
+  function exportHTML(list) {
+    const data = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), assessments: Object.fromEntries(list.map((a) => [a.id, a])) }).replace(/</g, "\\u003c");
+    const sec = (title, body) => (body ? `<h2>${esc(title)}</h2>${body}` : "");
+    const li = (arr) => (arr.length ? `<ul>${arr.map((t) => `<li>${t}</li>`).join("")}</ul>` : "");
+    const docs = list.map((a) => {
+      const recs = recommend(a), cl = a.client, h = a.health;
+      const by = (b) => recs.filter((x) => x.bucket === b);
+      const fit = partnerFit(a);
+      const answers = C.categories.map((c) => {
+        const r = a.categories[c.id];
+        if (r.skip) return `<li><b>${esc(c.name)}:</b> skipped</li>`;
+        if (!(r.current || r.satisfaction != null || r.frustrations.length)) return "";
+        const fr = r.frustrations.map((id) => c.frustrations.find((f) => f.id === id)?.label).filter(Boolean);
+        return `<li><b>${esc(c.name)}:</b> ${esc(r.current || "—")}${r.satisfaction != null ? ` · ${r.satisfaction}/5` : ""}${r.spend ? ` · $${esc(r.spend)}/mo` : ""}${fr.length ? ` · ${esc(fr.join(", "))}` : ""}${r.other ? ` · “${esc(r.other)}”` : ""}${r.openness ? ` · open: ${esc(r.openness)}` : ""}</li>`;
+      }).join("");
+      return `<article>
+        <h1>${esc(cl.name || "Unnamed client")}</h1>
+        <p class="meta">${[cl.phone, cl.email].filter(Boolean).map(esc).join(" · ")}${cl.phone || cl.email ? "<br>" : ""}Assessed ${fmtDate(a.createdAt)}${a.consent.followUpOk && a.wrap.followUpDate ? ` · Follow-up ${esc(fmtFollowUp(a.wrap))}` : ""}</p>
+        ${h.safetyFlag ? `<p class="flag">Doctor check first before any supplement (medication, pregnancy/nursing, or ongoing condition).</p>` : ""}
+        ${sec("Top priorities", cl.values.length ? `<p>${cl.values.map((v, i) => `${i + 1}. ${esc(valueLabel(v))}`).join("<br>")}</p>` : "")}
+        ${sec("In their words", li([a.wrap.pain1, a.wrap.pain2, a.wrap.pain3].filter(Boolean).map(esc)))}
+        ${sec("Focus for the follow-up", by("focus").map((x) => `<h3>${esc(x.cat.name)}</h3>${li(x.reasons.map(esc))}<p><i>Look at:</i> ${x.cat.lines.map(esc).join(", ")}</p>${a.recs.plan[x.cat.id] ? `<p><i>Bring:</i> ${esc(a.recs.plan[x.cat.id])}</p>` : ""}`).join(""))}
+        ${fit.level === "refer" || fit.level === "maybe" ? sec(C.partner.name + " referral", li(fit.reasons.map(esc))) : ""}
+        ${sec("Maybe later", li(by("later").map((x) => esc(x.cat.name))))}
+        ${sec("Keep what works", li(by("keep").map((x) => esc(x.cat.name))))}
+        ${sec("Health snapshot", healthLine(a).replace(/<span class="muted">Health snapshot:<\/span>/, ""))}
+        ${sec("Wellness goals", a.goals.selected.length ? `<p>${a.goals.selected.map((id) => goalById(id)?.label).filter(Boolean).map(esc).join(", ")}${a.goals.words ? ` · “${esc(a.goals.words)}”` : ""}</p>` : "")}
+        ${sec("All answers", answers ? `<ul>${answers}</ul>` : "")}
+        ${sec("Notes", a.wrap.notes ? `<p>${esc(a.wrap.notes)}</p>` : "")}
+      </article>`;
+    }).join("");
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Needs Assessment${list.length === 1 ? " · " + esc(list[0].client.name || "") : "s"}</title>
+<style>body{font:15px/1.55 -apple-system,"Helvetica Neue",Arial,sans-serif;color:#0b0b0b;max-width:680px;margin:0 auto;padding:24px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 6px;border-top:1.5px solid #0b0b0b;padding-top:10px}h3{font-size:15px;margin:12px 0 2px}
+.meta{color:#5b6563;margin:0}.flag{background:#eaf6f2;padding:10px 12px}ul{padding-left:18px;margin:4px 0}article{padding-bottom:28px;margin-bottom:28px;border-bottom:6px solid #bde3da}
+.note{font-size:12px;color:#5b6563}</style></head><body>
+<p class="note">Saved from Needs Assessment on ${esc(new Date().toLocaleString())}. To restore, open the app and tap “Load saved files”. Contains private client information.</p>
+${docs}
+<script type="application/json" id="na-data">${data}</script>
+</body></html>`;
+  }
 
   const today = () => new Date().toISOString().slice(0, 10);
 

@@ -28,6 +28,9 @@ Comes right after Wellness goals. It opens with a read-aloud intro to Amway's pa
 Edit `catalog.js` to change categories, wellness goals, questions, frustration options, product lines, and talking points. **Check the product lines against your market's current catalog.**
 
 ## Data
-- Back up regularly with **Backup (JSON)**. Clearing browser data erases everything.
-- Use **Export follow-ups (CSV)** for a spreadsheet of clients and follow-up dates.
-- Delete records for people who don't move forward.
+- The app keeps everything in this browser on this device.
+- **Save to phone:** on each summary (and on **Mark complete & save**), this opens the phone's share sheet. Choose *Save to Files* or Drive. On a computer it downloads instead. The saved `.html` file is a readable copy of the notes, and it also carries the data, so it survives clearing browser data.
+- **Load saved files:** pick one or more saved files (or old `.json` backups) to bring assessments back.
+- The home screen flags any assessment that isn't saved to the phone, or that has changed since it was last saved.
+- **Save all to phone** saves every assessment in one file. **Export follow-ups (CSV)** makes a spreadsheet of clients and follow-up dates.
+- Saved files contain clients' health answers. Keep them in a private folder, and delete records for people who don't move forward.

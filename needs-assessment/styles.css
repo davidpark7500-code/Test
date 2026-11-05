@@ -168,3 +168,6 @@ body.done-page::after { background: #fff; clip-path: polygon(0 0, 100% 100%, 0 1
 .jump { margin: 0; }
 .jump select { width: auto; text-align: right; direction: rtl; font-weight: 600; color: var(--muted); }
 .jump select option { direction: ltr; }
+
+.pill.saved { background: var(--mint); }
+.pill.unsaved { background: #fde8e4; color: #8a1f12; }
