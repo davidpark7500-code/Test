@@ -452,7 +452,7 @@
         ${pick("avellum.panel", v.panel, yn)}
         <div class="label">"Would you be open to a telehealth visit with a licensed clinician about your goals?"</div>
         ${pick("avellum.telehealth", v.telehealth, yn)}
-        <div class="label">"Have you heard of peptide therapy? Any interest in learning more?"</div>
+        <div class="label">"Have you heard of things like Ozempic, GLP-1s, or other peptide therapies? You may have heard people use them for all kinds of things, like weight loss, better sleep, or building muscle. Any interest in learning more?"</div>
         ${pick("avellum.peptides", v.peptides, [["interested", "Interested"], ["curious", "Curious, want to learn"], ["no", "Not interested"]])}
         <label>Notes <input type="text" data-path="avellum.notes" value="${esc(v.notes)}" placeholder="Questions they asked, concerns"></label>
       </div>
