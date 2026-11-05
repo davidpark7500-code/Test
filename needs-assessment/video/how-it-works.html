@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Customer Need Assessment: How it works</title>
+<title>Customer Needs Assessment: How it works</title>
 <style>
   @font-face { font-family: M; src: url(fonts/Montserrat-500.ttf); font-weight: 500; }
   @font-face { font-family: M; src: url(fonts/Montserrat-700.ttf); font-weight: 700; }
@@ -90,7 +90,7 @@
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, s - 120); ctx.lineTo(0, s + 120); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(W, H - 260 - Math.cos(t * 0.3) * 20); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
     ctx.font = font(800, 34); ctx.fillStyle = INK; ctx.letterSpacing = "0px";
-    ctx.fillText("Customer Need Assessment", 80, 110);
+    ctx.fillText("Customer Needs Assessment", 80, 110);
     // progress across the whole video
     const p = (D.slice(0, i).reduce((a, b) => a + b, 0) + (t - D.slice(0, i).reduce((a, b) => a + b, 0))) / total();
     ctx.fillStyle = "rgba(11,11,11,.15)"; ctx.fillRect(80, 140, W - 160, 6);

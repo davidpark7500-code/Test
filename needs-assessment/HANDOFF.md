@@ -1,4 +1,4 @@
-# Handoff: Customer Need Assessment
+# Handoff: Customer Needs Assessment
 
 Context for a Claude Code session picking up this project. Read this first, then `README.md` and `PORTFOLIO.md`.
 
@@ -24,13 +24,13 @@ A mobile web app David uses at a first appointment with a potential customer for
 Intro (tell your story → explain today's goal → notes consent) → Household → Home cleaning → Laundry → Dishes → Personal care → Skin care → Health & lifestyle → Wellness goals → Avellum Health → Vitamins/supplements/drinks → Water & air → Kitchen → Wrap-up → client thank-you screen → IBO summary.
 
 ## Decisions David made (don't undo without asking)
-- **Name:** "Customer Need Assessment" (singular "Need").
+- **Name:** "Customer Needs Assessment" (plural "Needs").
 - **Intro:** no IBO name and no spoken "I'm an Amway Business Owner" line, because clients already know. The only gate is "They're OK with me taking notes". Don't mention how or where data is stored to the client.
 - **Health questions are wanted:** energy, sleep, stress, diet, and so on. Guardrails stay in place: no diagnosing, no claims that a product treats a condition, and a yes/no safety flag (meds, pregnancy, or condition) with no details recorded.
 - **Avellum Health** (Amway's partner store; telehealth, clinician-reviewed **compounded peptide therapy, not FDA-approved**) is its **own questionnaire section**, not a per-product option. It's framed as a referral to a blood panel or clinician consult, never a specific peptide. Link: https://www.amway.com/en_US/avellum-health
 - **Design:** based on a reference David liked: white, mint `#bde3da`, Montserrat, solid black rectangular buttons, underline-only fields, mint diagonal shapes. No emoji, cards, or pills (they read as "AI-made").
 - **Save to phone:** each assessment saves as a readable `.html` file with the data embedded (share sheet → Files, Drive, or Dropbox). "Load saved files" restores them.
-- **Training video:** covers the mindset and 4-step process. "Share your goal, never income promises" was added to the story step (income-claim compliance). David didn't object.
+- **Training video:** covers the mindset and 4-step process. David had the income-promises line removed from the story step, in the app and the video.
 
 ## To do (in priority order)
 1. **ElevenLabs voiceover.** David wants AI narration.

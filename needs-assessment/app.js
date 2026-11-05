@@ -228,11 +228,11 @@
 
       <section class="card how">
         <details ${list.length ? "" : "open"}>
-          <summary><span class="label">New here? Watch how it works</span> <span class="muted small">1:23</span></summary>
+          <summary><span class="label">New here? Watch how it works</span> <span class="muted small">1:18</span></summary>
           <video src="video/how-it-works.mp4" poster="video/poster.jpg" title="How it works (voice: elevenlabs.io)" controls playsinline preload="metadata"></video>
           <p class="small muted">Voice: elevenlabs.io</p>
           <ol class="process small">
-            <li><b>Tell your story.</b> Your why: getting out of debt, saving for a house, helping Mom retire. Share your goal, never income promises.</li>
+            <li><b>Tell your story.</b> Your why: getting out of debt, saving for a house, helping Mom retire.</li>
             <li><b>Explain today's goal.</b> Find needs in their day-to-day life. No recommendations today.</li>
             <li><b>Ask questions and listen.</b> The focus is on them and their goals.</li>
             <li><b>Schedule the follow-up</b> with recommendations built around their answers.</li>
@@ -285,7 +285,7 @@
       <h1>Before you start</h1>
       <div class="card">
         <div class="label">1 · Tell your story</div>
-        <p class="small">Share your why in your own words: getting out of debt, saving up for a house, helping Mom retire. Share your goal, never income promises.</p>
+        <p class="small">Share your why in your own words: getting out of debt, saving up for a house, helping Mom retire.</p>
       </div>
       <div class="card script">
         <div class="label">2 · Explain today's goal (read aloud)</div>
@@ -864,7 +864,7 @@
   function saveToPhone(list) {
     if (!list.length) return;
     const one = list.length === 1;
-    const name = one ? `Customer-Need-Assessment_${slug(list[0].client.name)}_${today()}.html` : `Customer-Need-Assessments_all-${list.length}_${today()}.html`;
+    const name = one ? `Customer-Needs-Assessment_${slug(list[0].client.name)}_${today()}.html` : `Customer-Needs-Assessments_all-${list.length}_${today()}.html`;
     const html = exportHTML(list);
     const markSaved = () => { const now = new Date().toISOString(); list.forEach((a) => { db[a.id].savedAt = now; }); persist(); render(); };
     // Phones: open the share sheet (Save to Files / Drive). Must run inside the tap.
@@ -915,12 +915,12 @@
       </article>`;
     }).join("");
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Customer Need Assessment${list.length === 1 ? " · " + esc(list[0].client.name || "") : "s"}</title>
+<title>Customer Needs Assessment${list.length === 1 ? " · " + esc(list[0].client.name || "") : "s"}</title>
 <style>body{font:15px/1.55 -apple-system,"Helvetica Neue",Arial,sans-serif;color:#0b0b0b;max-width:680px;margin:0 auto;padding:24px}
 h1{font-size:26px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 6px;border-top:1.5px solid #0b0b0b;padding-top:10px}h3{font-size:15px;margin:12px 0 2px}
 .meta{color:#5b6563;margin:0}.flag{background:#eaf6f2;padding:10px 12px}ul{padding-left:18px;margin:4px 0}article{padding-bottom:28px;margin-bottom:28px;border-bottom:6px solid #bde3da}
 .note{font-size:12px;color:#5b6563}</style></head><body>
-<p class="note">Saved from Customer Need Assessment on ${esc(new Date().toLocaleString())}. To restore, open the app and tap “Load saved files”. Contains private client information.</p>
+<p class="note">Saved from Customer Needs Assessment on ${esc(new Date().toLocaleString())}. To restore, open the app and tap “Load saved files”. Contains private client information.</p>
 ${docs}
 <script type="application/json" id="na-data">${data}</script>
 </body></html>`;

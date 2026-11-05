@@ -1,4 +1,4 @@
-// Editable configuration for the Customer Need Assessment.
+// Editable configuration for the Customer Needs Assessment.
 // Change categories, prompts, frustrations, and product lines here — no other code changes needed.
 // Product lines are a starting point only: verify names and availability against your market's current catalog.
 

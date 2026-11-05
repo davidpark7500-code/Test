@@ -5,9 +5,9 @@ const SCENES = [
   {
     kind: "title",
     kicker: "How it works",
-    headline: "Customer Need Assessment.",
+    headline: "Customer Needs Assessment.",
     sub: "The mindset and the process for your first appointment.",
-    narration: "Welcome to the Customer Need Assessment. Here's the mindset, and the four-step process for your first appointment.",
+    narration: "Welcome to the Customer Needs Assessment. Here's the mindset, and the four-step process for your first appointment.",
   },
   {
     kind: "statement",
@@ -21,8 +21,7 @@ const SCENES = [
     headline: "Tell your story.",
     sub: "Share your why. For example:",
     lines: ["Getting out of debt", "Saving up for a house", "Helping Mom retire"],
-    note: "Share your goal, never income promises.",
-    narration: "Step one: tell your story. Share your why. Maybe it's getting out of debt, saving up for a house, or helping your mom retire. Share your goal. Never promise income.",
+    narration: "Step one: tell your story. Share your why. Maybe it's getting out of debt, saving up for a house, or helping your mom retire.",
   },
   {
     kind: "step", step: 2,
@@ -61,7 +60,7 @@ const SCENES = [
   {
     kind: "close",
     lines: ["Listen first.", "Help second.", "Build for the long term."],
-    footer: "Customer Need Assessment",
+    footer: "Customer Needs Assessment",
     narration: "Listen first. Help second. Build for the long term.",
   },
 ];
