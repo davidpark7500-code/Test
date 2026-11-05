@@ -7,7 +7,7 @@ A mobile-friendly web app for running a needs-first first appointment and prepar
 ## Flow
 1. **Intro.** A read-aloud script that discloses you're an Amway Business Owner and asks permission to take notes. You can't continue until both are confirmed.
 2. **Household.** Contact details, household size, kids and pets, the client's top 2 priorities (in order), and stated preferences.
-3. **Category walk-through.** Home cleaning, laundry, dishes, personal care, skin care, **health & lifestyle**, **wellness goals**, vitamins/supplements/drinks, water & air, and kitchen. For each one: what they use now, satisfaction (1–5), monthly spend, frustrations, and whether they're open to switching. Any category can be skipped.
+3. **Category walk-through.** Home cleaning, laundry, dishes, personal care, skin care, **health & lifestyle**, **wellness goals**, **Avellum Health**, vitamins/supplements/drinks, water & air, and kitchen. For each one: what they use now, satisfaction (1–5), monthly spend, frustrations, and whether they're open to switching. Any category can be skipped.
    - **Health & lifestyle:** energy and stress (1–10), sleep quality and hours, eating pattern, water, caffeine, exercise, digestion, plus a yes/no safety check (prescription meds, pregnancy/nursing, ongoing condition). A "yes" puts a doctor-check banner on the summary.
    - **Wellness goals:** energy, sleep, weight, stress, fitness, and more. They pick their #1 goal, describe it in their own words, say what they've tried, and whether they're open to products. The screen includes a script for when someone brings up a medical condition.
 4. **Wrap-up.** Their top 3 pain points in their own words, permission to follow up, the follow-up date, and notes.
@@ -21,8 +21,8 @@ Each wellness goal they name is scored too: 5 points, +4 for their #1 goal, +1 o
 ## Portfolio
 See [`PORTFOLIO.md`](PORTFOLIO.md) for the need → brand map and the wellness-conversation rules.
 
-## Partner stores
-Each focus recommendation has a **Get it from** choice: Amway or a partner store (currently **Avellum Health**, Amway's telehealth/peptide partner, framed as a referral to a blood panel or clinician consult). Add stores, or list a partner's products per category or goal, in the `stores` section of `catalog.js`. The CSV export lists which recommendations go through a partner store.
+## Avellum Health section
+Comes right after Wellness goals. It opens with a read-aloud intro to Amway's partner Avellum Health (clinician-led telehealth: blood panel → clinician decides on any peptide therapy), then asks about recent bloodwork and interest in a blood panel, a telehealth visit, and peptides. If they're interested, the summary shows an **Avellum Health referral** card with the reasons, the Amway Avellum link, and the referral-only guardrails. Configure it under `partner` in `catalog.js`.
 
 ## Customizing
 Edit `catalog.js` to change categories, wellness goals, questions, frustration options, product lines, and talking points. **Check the product lines against your market's current catalog.**

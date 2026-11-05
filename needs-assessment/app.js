@@ -35,7 +35,7 @@
     a.recs ??= {};
     a.recs.override ??= {};
     a.recs.plan ??= {};
-    a.recs.store ??= {};
+    a.avellum ??= { bloodwork: "", panel: "", telehealth: "", peptides: "", notes: "" };
     a.status ??= "draft";
     return a;
   }
@@ -74,11 +74,11 @@
   const steps = () => {
     const cats = C.categories.map((c) => c.id);
     const at = cats.indexOf("nutrition");
-    if (at >= 0) cats.splice(at, 0, "health", "goals"); else cats.push("health", "goals");
+    if (at >= 0) cats.splice(at, 0, "health", "goals", "partner"); else cats.push("health", "goals", "partner");
     return ["intro", "household", ...cats, "wrap"];
   };
   const goalById = (id) => C.goals.find((g) => g.id === id);
-  const STEP_LABEL = { intro: ["Intro", "Intro"], household: ["Household", "Household"], goals: ["🎯", "Wellness goals"], health: ["🩺", "Health & lifestyle"], wrap: ["Wrap-up", "Wrap-up"] };
+  const STEP_LABEL = { intro: ["Intro", "Intro"], household: ["Household", "Household"], goals: ["🎯", "Wellness goals"], health: ["🩺", "Health & lifestyle"], partner: [C.partner.icon, C.partner.name], wrap: ["Wrap-up", "Wrap-up"] };
 
   // ---------- recommendation engine ----------
   // Scores each category on dissatisfaction, frustrations (weighted by the client's own top priorities),
@@ -413,6 +413,53 @@
       </div>`;
   }
 
+  function viewPartner(a) {
+    const P = C.partner, v = a.avellum;
+    const pick = (path, cur, list) => `<div class="chips">${list.map(([val, l]) =>
+      `<button type="button" class="chip ${cur === val ? "on" : ""}" data-set="${path}" data-val="${val}" aria-pressed="${cur === val}">${esc(l)}</button>`).join("")}</div>`;
+    const yn = [["yes", "Yes"], ["maybe", "Maybe"], ["no", "No"]];
+    const fit = partnerFit(a);
+    return `
+      <h1>${P.icon} ${esc(P.name)}</h1>
+      <div class="card script">
+        <div class="label">Read aloud</div>
+        <p>"Amway also partners with ${esc(P.name)}, a clinician-led telehealth service. You can start with a blood panel to see your own numbers, and a licensed clinician reviews it with you and decides whether anything, like peptide therapy, is a fit. I don't make that call; they do."</p>
+      </div>
+      ${fit.goals.length ? `<p class="small"><span class="muted">Related goals they named:</span> ${fit.goals.map(esc).join(", ")}</p>` : ""}
+      ${a.health.safetyFlag ? `<div class="caution">🩺 Their safety check is ticked. If they're interested, they must tell the clinician about their medications or condition.</div>` : ""}
+      <div class="card">
+        <div class="label">"When did you last have bloodwork done?"</div>
+        ${pick("avellum.bloodwork", v.bloodwork, [["recent", "Within the last year"], ["old", "More than a year ago"], ["never", "Never / not sure"]])}
+        <div class="label">"Would you want to see your own numbers so any recommendations are based on your data?"</div>
+        ${pick("avellum.panel", v.panel, yn)}
+        <div class="label">"Would you be open to a telehealth visit with a licensed clinician about your goals?"</div>
+        ${pick("avellum.telehealth", v.telehealth, yn)}
+        <div class="label">"Have you heard of peptide therapy? Any interest in learning more?"</div>
+        ${pick("avellum.peptides", v.peptides, [["interested", "Interested"], ["curious", "Curious, want to learn"], ["no", "Not interested"]])}
+        <label>Notes <input type="text" data-path="avellum.notes" value="${esc(v.notes)}" placeholder="Questions they asked, concerns"></label>
+      </div>
+      <div class="caution small">⚠️ ${esc(P.note)}</div>`;
+  }
+
+  function partnerFit(a) {
+    const P = C.partner, v = a.avellum;
+    const goals = a.goals.selected.filter((g) => P.goals.includes(g)).map((g) => goalById(g)?.label).filter(Boolean);
+    const reasons = [];
+    if (goals.length) reasons.push(`Related goals: ${goals.join(", ")}`);
+    if (v.panel === "yes") reasons.push("Wants to see their own numbers");
+    else if (v.panel === "maybe") reasons.push("Maybe interested in a blood panel");
+    if (v.bloodwork === "old" || v.bloodwork === "never") reasons.push(v.bloodwork === "never" ? "No recent bloodwork" : "Bloodwork over a year old");
+    if (v.telehealth === "yes") reasons.push("Open to a telehealth clinician visit");
+    if (v.peptides === "interested") reasons.push("Interested in peptide therapy");
+    else if (v.peptides === "curious") reasons.push("Curious about peptide therapy");
+    if (v.notes.trim()) reasons.push(`Notes: “${v.notes.trim()}”`);
+    const yes = [v.panel, v.telehealth].filter((x) => x === "yes").length + (v.peptides === "interested" ? 1 : 0);
+    const maybe = [v.panel, v.telehealth].filter((x) => x === "maybe").length + (v.peptides === "curious" ? 1 : 0);
+    const declined = v.panel === "no" && v.telehealth === "no" && v.peptides === "no";
+    const level = declined ? "no" : yes >= 1 ? "refer" : maybe >= 1 ? "maybe" : "none";
+    return { goals, reasons, level };
+  }
+
   function viewGoals(a) {
     const g = a.goals;
     const chips = C.goals.map((x) => {
@@ -494,7 +541,7 @@
     idx = Math.max(0, Math.min(idx, s.length - 1));
     if (idx > 0 && !consentOk(a)) idx = 0;
     const id = s[idx];
-    const body = id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : id === "goals" ? viewGoals(a) : id === "health" ? viewHealth(a) : viewCategory(a, catById(id));
+    const body = id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : id === "goals" ? viewGoals(a) : id === "health" ? viewHealth(a) : id === "partner" ? viewPartner(a) : viewCategory(a, catById(id));
     const last = idx === s.length - 1;
     const blocked = id === "intro" && !consentOk(a);
     return `
@@ -521,6 +568,19 @@
     return bits.length ? `<p class="small"><span class="muted">Health snapshot:</span> ${bits.map(esc).join(" · ")}${h.notes ? ` · “${esc(h.notes)}”` : ""}</p>` : "";
   }
 
+  function partnerSummary(a) {
+    const P = C.partner, fit = partnerFit(a);
+    if (fit.level === "none" || fit.level === "no") return "";
+    return `
+      <h2>${P.icon} ${esc(P.name)} referral</h2>
+      <article class="card rec ${fit.level === "refer" ? "focus" : ""}">
+        <p class="small"><strong>${fit.level === "refer" ? "Interested: share the Avellum link at the follow-up." : "Curious: give a short explanation and let them decide."}</strong></p>
+        <ul class="reasons">${fit.reasons.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+        <p class="small"><span class="muted">Link to send:</span> <a href="${esc(P.url)}" target="_blank" rel="noopener">${esc(P.url)}</a></p>
+        <p class="small caution">⚠️ ${esc(P.note)}${a.health.safetyFlag ? " <strong>Their safety check is ticked: they must tell the clinician about their medications or condition.</strong>" : ""}</p>
+      </article>`;
+  }
+
   function viewSummary(a) {
     const recs = recommend(a);
     const by = (b) => recs.filter((x) => x.bucket === b);
@@ -537,14 +597,7 @@
         </header>
         ${x.r.current ? `<p class="small"><span class="muted">Uses now:</span> ${esc(x.r.current)}${x.r.spend ? ` · ~${money(+x.r.spend)}/mo` : ""}</p>` : ""}
         <ul class="reasons">${x.reasons.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
-        <p class="small"><span class="muted">Look at (Amway):</span> ${x.cat.lines.map(esc).join(", ")}</p>
-        ${C.stores.filter((st) => st.partner && st.lines?.[x.cat.id]?.length).map((st) => `<p class="small"><span class="muted">Look at (${esc(st.name)}):</span> ${st.lines[x.cat.id].map(esc).join(", ")}</p>`).join("")}
-        ${C.stores.filter((st) => st.note && (a.recs.store[x.cat.id] || []).includes(st.id)).map((st) => `<p class="small caution">⚠️ ${esc(st.name)}: ${esc(st.note)}${a.health.safetyFlag ? " <strong>Their safety check is ticked: they must tell the clinician about their medications or condition.</strong>" : ""}</p>`).join("")}
-        <div class="small muted">Get it from</div>
-        <div class="chips">${C.stores.map((st) => {
-          const on = (a.recs.store[x.cat.id] || []).includes(st.id);
-          return `<button type="button" class="chip ${on ? "on" : ""}" data-toggle="recs.store.${x.cat.id}" data-val="${st.id}" aria-pressed="${on}">${esc(st.name)}${st.partner ? " <span class='muted small'>(partner)</span>" : ""}</button>`;
-        }).join("")}</div>
+        <p class="small"><span class="muted">Look at:</span> ${x.cat.lines.map(esc).join(", ")}</p>
         <p class="small tip">💡 ${esc(x.cat.talkingPoint)}</p>
         <label class="small">Products I'll bring
           <textarea rows="2" data-path="recs.plan.${x.cat.id}" placeholder="Specific products + cost-per-use vs. what they use now">${esc(a.recs.plan[x.cat.id])}</textarea>
@@ -594,6 +647,8 @@
 
       <h2>Focus for the follow-up <span class="muted">(${focus.length})</span></h2>
       ${focus.length ? `<div class="recs">${focusCards}</div>` : `<p class="muted">Nothing stands out as a clear need yet. That's an honest outcome. Consider a light check-in instead of a product presentation.</p>`}
+
+      ${partnerSummary(a)}
 
       ${later.length ? `<h2>Maybe later</h2><ul class="minis">${later.map((x) => mini(x, `<button class="btn tiny ghost" data-action="override" data-cat="${x.cat.id}" data-val="focus">Move to focus</button>`)).join("")}</ul>` : ""}
 
@@ -769,7 +824,7 @@
       if (/^[=+\-@]/.test(s)) s = "'" + s; // block spreadsheet formula injection
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const head = ["Name", "Phone", "Email", "Status", "Assessed", "Follow-up OK", "Follow-up date", "Follow-up time", "Top priorities", "Wellness goals", "Focus categories", "Pain points", "Reported monthly spend", "Doctor check flag", "Partner store items"];
+    const head = ["Name", "Phone", "Email", "Status", "Assessed", "Follow-up OK", "Follow-up date", "Follow-up time", "Top priorities", "Wellness goals", "Focus categories", "Pain points", "Reported monthly spend", "Doctor check flag", "Avellum interest"];
     const rows = Object.values(db).map(normalize).map((a) => [
       a.client.name, a.client.phone, a.client.email, a.status, a.createdAt.slice(0, 10),
       a.consent.followUpOk ? "Yes" : "No", a.wrap.followUpDate, a.wrap.followUpTime,
@@ -779,7 +834,7 @@
       [a.wrap.pain1, a.wrap.pain2, a.wrap.pain3].filter(Boolean).join("; "),
       monthlySpend(a) || "",
       a.health.safetyFlag ? "Yes" : "",
-      Object.entries(a.recs.store).filter(([, v]) => v.some((id) => C.stores.find((st) => st.id === id)?.partner)).map(([k]) => k.replace("goal:", "Goal: ")).join("; "),
+      ({ refer: "Interested", maybe: "Curious", no: "Declined", none: "" })[partnerFit(a).level],
     ]);
     return [head, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
   }
