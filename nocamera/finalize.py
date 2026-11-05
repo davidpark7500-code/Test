@@ -65,7 +65,8 @@ def main():
                 open(txt, "w").write(line)
                 y = f"h*0.14-{(len(lines) - 1) * 34}+{i * 68}-th/2"
                 vf.append(f"drawtext=fontfile={FONT}:textfile={txt}:fontsize=52:fontcolor=white:"
-                          f"x=(w-tw)/2:y={y}:shadowcolor=black@0.7:shadowx=0:shadowy=3")
+                          f"x=(w-tw)/2:y={y}:shadowcolor=black@0.7:shadowx=0:shadowy=3"
+                          f":box=1:boxcolor=black@0.32:boxborderw=14")   # soft backing so light footage stays readable
         cmd = ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", a.src, "-i", wav]
         if vf:
             cmd += ["-vf", ",".join(vf), "-c:v", "libx264", "-preset", "slow", "-crf", "19",
