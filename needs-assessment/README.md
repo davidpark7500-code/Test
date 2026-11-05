@@ -15,7 +15,7 @@ A mobile-friendly web app for running a needs-first first appointment and prepar
 3. **Category walk-through.** Home cleaning, laundry, dishes, personal care, skin care, **health & lifestyle**, **wellness goals**, **Avellum Health**, vitamins/supplements/drinks, water & air, and kitchen. For each one: what they use now, satisfaction (1–5), monthly spend, frustrations, and whether they're open to switching. Any category can be skipped.
    - **Health & lifestyle:** energy and stress (1–10), sleep quality and hours, eating pattern, water, caffeine, exercise, digestion, plus a yes/no safety check (prescription meds, pregnancy/nursing, ongoing condition). A "yes" puts a doctor-check banner on the summary.
    - **Wellness goals:** energy, sleep, weight, stress, fitness, and more. They pick their #1 goal, describe it in their own words, say what they've tried, and whether they're open to products. The screen includes a script for when someone brings up a medical condition.
-4. **Wrap-up.** Their top 3 pain points in their own words, permission to follow up, the follow-up date, and notes.
+4. **Wrap-up.** Their top 3 pain points in their own words, permission to follow up, the follow-up date, a reminder to set up their Amway customer account and shopping list, and notes.
 5. **Summary.** Up to 3 **Focus** categories, a **Maybe later** list, and an explicit **Keep what works** list. Each focus category shows why it was picked, product lines to look at, a talking point, and a "Products I'll bring" field. The summary can be printed as a prep sheet.
 
 ## How recommendations are scored

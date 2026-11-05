@@ -545,6 +545,13 @@
         <div class="grid">
           <label>Follow-up date <input type="date" data-path="wrap.followUpDate" value="${esc(w.followUpDate)}"></label>
           <label>Time <input type="time" data-path="wrap.followUpTime" value="${esc(w.followUpTime)}"></label>
+        </div>
+        <div class="caution">
+          <strong>Before the follow-up</strong>
+          <ul>
+            <li>With their OK, create their free customer account at Amway.com. You'll just need their name, phone number, and email.</li>
+            <li>Then create a free shopping list so it's ready for the follow-up.</li>
+          </ul>
         </div>` : `<p class="small muted">No follow-up? That's fine. Thank them, and consider deleting the record afterward.</p>`}
       </div>
       <div class="card">
