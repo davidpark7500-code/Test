@@ -1,0 +1,10 @@
+# Batch 2: hooks burned in (for API posting, which has no text tool)
+ink        64   12  the ocean, if it were made of math.
+chrome     12   10  crumpled chrome. zero cameras.
+chrome     29   10  impossible objects #2
+ink        58   12  no paint was harmed in this video.
+chrome     17   10  you can't hold this. it's only math.
+ink        33   12  marble that never stops moving.
+chrome      5   10  satin, rendered from equations.
+particles  14   12  120,000 particles. one equation.
+chrome      4   10  liquid metal, looped forever.

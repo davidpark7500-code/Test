@@ -91,7 +91,7 @@ vec3 env(vec3 d){ // procedural studio: two softboxes + coloured floor bounce
   vec3 c = mix(pal(.15)*.03, pal(.25)*.35, smoothstep(-.3,1.,d.y));
   c += 1.8*exp(-pow(length(d.xy-vec2(-.55,.5))*2.2,2.))*(d.z<.2?1.:.3);
   c += 1.1*exp(-pow((d.x-.8)*5.,2.))*smoothstep(-.1,.4,d.y);
-  c += pal(.7)*.7*smoothstep(0.,-.8,d.y);
+  c += mix(vec3(.18), pal(.7)*.3, .4)*smoothstep(0.,-.8,d.y);
   c += .25*exp(-abs(d.y)*14.);
   return c; }
 void main(){
@@ -101,7 +101,7 @@ void main(){
   for(int i=0;i<140;i++){ float h=map(ro+rd*t); if(h<.0006){hit=true;break;} t+=h; if(t>9.) break; }
   vec3 col;
   vec2 v = gl_FragCoord.xy/R;
-  vec3 bg = mix(pal(.15)*.06, pal(.6)*.14, v.y) + pal(.4)*.12*exp(-length(uv)*1.6);
+  vec3 bg = vec3(.006,.007,.01) + mix(vec3(.01), pal(.4)*.05, v.y) + pal(.4)*.07*exp(-length(uv)*1.8);
   if(hit){ vec3 p=ro+rd*t, n=nrm(p); vec3 r=reflect(rd,n); float fr=pow(1.-max(dot(n,-rd),0.),5.);
     vec3 F0 = mix(vec3(.95), pal(.35)*1.1, K.z);
     col = env(r)*(F0+(1.-F0)*fr);
@@ -128,7 +128,7 @@ void main(){
   float we = w*w*(3.-2.*w);
   vec3 p = mix(a, b, we);
   p += flow(p + r.xyz*.2, TH) * sin(ph)*sin(ph)*.85;     // swirl only while in flight
-  p = rX(.35)*rY(TH)*p;
+  p = rX(.35)*rY(TH)*p*1.35;
   float z = 4. - p.z;
   gl_Position = vec4(p.x*2.1/z/asp, p.y*2.1/z, 0., 1.);
   gl_PointSize = px*(1.+r.z*.9)*5./z;
