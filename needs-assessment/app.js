@@ -80,7 +80,7 @@
     return ["intro", "household", ...cats, "wrap"];
   };
   const goalById = (id) => C.goals.find((g) => g.id === id);
-  const STEP_LABEL = { intro: ["Intro", "Intro"], household: ["Household", "Household"], goals: ["🎯", "Wellness goals"], health: ["🩺", "Health & lifestyle"], partner: [C.partner.icon, C.partner.name], wrap: ["Wrap-up", "Wrap-up"] };
+  const STEP_LABEL = { intro: ["Intro", "Intro"], household: ["Household", "Household"], goals: ["", "Wellness goals"], health: ["", "Health & lifestyle"], partner: ["", C.partner.name], wrap: ["Wrap-up", "Wrap-up"] };
 
   // ---------- recommendation engine ----------
   // Scores each category on dissatisfaction, frustrations (weighted by the client's own top priorities),
@@ -131,7 +131,7 @@
     for (const gid of g.selected) {
       const goal = goalById(gid);
       if (!goal) continue;
-      const cat = { id: "goal:" + gid, icon: goal.icon, name: "Goal: " + goal.label, lines: goal.lines, talkingPoint: goal.talkingPoint, goal: true };
+      const cat = { id: "goal:" + gid, name: "Goal: " + goal.label, lines: goal.lines, talkingPoint: goal.talkingPoint, goal: true };
       const res = { cat, r: { current: g.current, spend: "" }, score: 0, reasons: [], bucket: "later" };
       if (g.openness === "no") {
         res.bucket = "keep";
@@ -196,7 +196,7 @@
   function viewHome() {
     const list = Object.values(db).map(normalize).sort((x, y) => (y.updatedAt > x.updatedAt ? 1 : -1));
     const rows = list.map((a) => {
-      const focus = recommend(a).filter((x) => x.bucket === "focus").map((x) => x.cat.icon + " " + x.cat.name);
+      const focus = recommend(a).filter((x) => x.bucket === "focus").map((x) => x.cat.name);
       return `
         <li class="card client">
           <div class="client-main">
@@ -218,9 +218,9 @@
 
     return `
       <section class="hero">
-        <h1>Customer Needs Assessment</h1>
-        <p class="muted">Learn what they use and what's not working. Build recommendations for the follow-up from their answers.</p>
-        <button class="btn big" data-action="new">+ Start new assessment</button>
+        <h1 class="hello">Hello${settings.iboName.trim() ? ", " + esc(settings.iboName.trim().split(/\s+/)[0]) : ""}<span class="dot-accent">.</span></h1>
+        <p class="muted">Learn what they use and what's not working, then build the follow-up from their answers.</p>
+        <button class="btn big" data-action="new">Start a new assessment</button>
       </section>
 
       <section class="card settings">
@@ -243,20 +243,21 @@
       </section>`;
   }
 
+  function stepTitle(id) {
+    return (STEP_LABEL[id] ?? [null, catById(id).name])[1];
+  }
+
   function progress(a, idx) {
     const s = steps();
-    const pct = Math.round((idx / (s.length)) * 100);
-    const labels = s.map((id, i) => {
-      const [label, title] = STEP_LABEL[id] ?? [catById(id).icon, catById(id).name];
-      const done = i < idx ? "done" : i === idx ? "current" : "";
-      const locked = i > 0 && !consentOk(a);
-      return locked
-        ? `<span class="dot ${done}" title="${esc(title)}">${label}</span>`
-        : `<a class="dot ${done}" href="#/a/${a.id}/${i}" title="${esc(title)}">${label}</a>`;
-    }).join("");
+    const pct = Math.round(((idx + 1) / s.length) * 100);
+    const pad = (n) => String(n).padStart(2, "0");
+    const opts = s.map((id, i) => `<option value="${i}" ${i === idx ? "selected" : ""}>${pad(i + 1)}  ${esc(stepTitle(id))}</option>`).join("");
     return `
-      <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>
-      <nav class="dots" aria-label="Sections">${labels}</nav>`;
+      <div class="stephead">
+        <span class="stepnum">${pad(idx + 1)} <span class="muted">/ ${pad(s.length)}</span></span>
+        ${consentOk(a) ? `<label class="jump"><span class="sr">Jump to section</span><select data-jump="${a.id}" aria-label="Jump to section">${opts}</select></label>` : ""}
+      </div>
+      <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>`;
   }
 
   const consentOk = (a) => a.consent.disclosed && a.consent.storeConsent;
@@ -333,14 +334,14 @@
 
     if (r.skip) {
       return `
-        <h1>${c.icon} ${esc(c.name)}</h1>
+        <h1>${esc(c.name)}</h1>
         <div class="card"><p class="muted">Marked as not relevant.</p>
           <button class="btn ghost" data-set="${base}.skip" data-val="false" data-bool>Undo skip</button></div>`;
     }
 
     return `
-      <h1>${c.icon} ${esc(c.name)}</h1>
-      ${c.caution ? `<div class="caution">⚠️ ${esc(c.caution)}</div>` : ""}
+      <h1>${esc(c.name)}</h1>
+      ${c.caution ? `<div class="caution">${esc(c.caution)}</div>` : ""}
       <div class="card prompts">
         <div class="label">Ask</div>
         <ul>${c.prompts.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
@@ -377,7 +378,7 @@
     const pick = (path, cur, list) => `<div class="chips">${list.map((v) =>
       `<button type="button" class="chip ${cur === v ? "on" : ""}" data-set="${path}" data-val="${esc(v)}" aria-pressed="${cur === v}">${esc(v)}</button>`).join("")}</div>`;
     return `
-      <h1>🩺 Health & lifestyle</h1>
+      <h1>Health & lifestyle</h1>
       <div class="card script">
         <div class="label">Transition</div>
         <p>"Now some questions about you, not your house. There are no right answers. This helps me figure out what's actually worth suggesting."</p>
@@ -422,13 +423,13 @@
     const yn = [["yes", "Yes"], ["maybe", "Maybe"], ["no", "No"]];
     const fit = partnerFit(a);
     return `
-      <h1>${P.icon} ${esc(P.name)}</h1>
+      <h1>${esc(P.name)}</h1>
       <div class="card script">
         <div class="label">Read aloud</div>
         <p>"Amway also partners with ${esc(P.name)}, a clinician-led telehealth service. You can start with a blood panel to see your own numbers, and a licensed clinician reviews it with you and decides whether anything, like peptide therapy, is a fit. I don't make that call; they do."</p>
       </div>
       ${fit.goals.length ? `<p class="small"><span class="muted">Related goals they named:</span> ${fit.goals.map(esc).join(", ")}</p>` : ""}
-      ${a.health.safetyFlag ? `<div class="caution">🩺 Their safety check is ticked. If they're interested, they must tell the clinician about their medications or condition.</div>` : ""}
+      ${a.health.safetyFlag ? `<div class="caution">Their safety check is ticked. If they're interested, they must tell the clinician about their medications or condition.</div>` : ""}
       <div class="card">
         <div class="label">"When did you last have bloodwork done?"</div>
         ${pick("avellum.bloodwork", v.bloodwork, [["recent", "Within the last year"], ["old", "More than a year ago"], ["never", "Never / not sure"]])}
@@ -440,7 +441,7 @@
         ${pick("avellum.peptides", v.peptides, [["interested", "Interested"], ["curious", "Curious, want to learn"], ["no", "Not interested"]])}
         <label>Notes <input type="text" data-path="avellum.notes" value="${esc(v.notes)}" placeholder="Questions they asked, concerns"></label>
       </div>
-      <div class="caution small">⚠️ ${esc(P.note)}</div>`;
+      <div class="caution small">${esc(P.note)}</div>`;
   }
 
   function partnerFit(a) {
@@ -466,20 +467,20 @@
     const g = a.goals;
     const chips = C.goals.map((x) => {
       const on = g.selected.includes(x.id);
-      return `<button type="button" class="chip ${on ? "on" : ""}" data-toggle="goals.selected" data-val="${x.id}" aria-pressed="${on}">${x.icon} ${esc(x.label)}</button>`;
+      return `<button type="button" class="chip ${on ? "on" : ""}" data-toggle="goals.selected" data-val="${x.id}" aria-pressed="${on}">${esc(x.label)}</button>`;
     }).join("");
     const topChips = g.selected.map((id) => {
       const x = goalById(id);
       if (!x) return "";
       const on = g.top === id;
-      return `<button type="button" class="chip ${on ? "on" : ""}" data-set="goals.top" data-val="${id}" aria-pressed="${on}">${on ? "⭐ " : ""}${esc(x.label)}</button>`;
+      return `<button type="button" class="chip ${on ? "on" : ""}" data-set="goals.top" data-val="${id}" aria-pressed="${on}">${on ? "" : ""}${esc(x.label)}</button>`;
     }).join("");
     const open = [["yes", "Yes"], ["maybe", "Maybe"], ["no", "No, just habits"]].map(([v, l]) =>
       `<button type="button" class="chip ${g.openness === v ? "on" : ""}" data-set="goals.openness" data-val="${v}" aria-pressed="${g.openness === v}">${l}</button>`
     ).join("");
     return `
-      <h1>🎯 Wellness goals</h1>
-      <div class="caution">⚠️ Ask freely. Two lines: don't diagnose, and don't say a product treats a condition. Use the catalog's support wording.</div>
+      <h1>Wellness goals</h1>
+      <div class="caution">Ask freely. Two lines: don't diagnose, and don't say a product treats a condition. Use the catalog's support wording.</div>
       <div class="card prompts">
         <div class="label">Ask</div>
         <ul>
@@ -552,7 +553,7 @@
       <div class="stepnav">
         ${idx > 0 ? `<a class="btn ghost" href="#/a/${a.id}/${idx - 1}">← Back</a>` : `<a class="btn ghost" href="#/">Exit</a>`}
         ${last
-          ? `<a class="btn" href="#/a/${a.id}/summary">See recommendations →</a>`
+          ? `<a class="btn" href="#/a/${a.id}/done">Finish</a>`
           : `<a class="btn ${blocked ? "disabled" : ""}" ${blocked ? 'aria-disabled="true"' : `href="#/a/${a.id}/${idx + 1}"`}>Next →</a>`}
       </div>`;
   }
@@ -574,13 +575,25 @@
     const P = C.partner, fit = partnerFit(a);
     if (fit.level === "none" || fit.level === "no") return "";
     return `
-      <h2>${P.icon} ${esc(P.name)} referral</h2>
+      <h2>${esc(P.name)} referral</h2>
       <article class="card rec ${fit.level === "refer" ? "focus" : ""}">
         <p class="small"><strong>${fit.level === "refer" ? "Interested: share the Avellum link at the follow-up." : "Curious: give a short explanation and let them decide."}</strong></p>
         <ul class="reasons">${fit.reasons.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
         <p class="small"><span class="muted">Link to send:</span> <a href="${esc(P.url)}" target="_blank" rel="noopener">${esc(P.url)}</a></p>
-        <p class="small caution">⚠️ ${esc(P.note)}${a.health.safetyFlag ? " <strong>Their safety check is ticked: they must tell the clinician about their medications or condition.</strong>" : ""}</p>
+        <p class="small caution">${esc(P.note)}${a.health.safetyFlag ? " <strong>Their safety check is ticked: they must tell the clinician about their medications or condition.</strong>" : ""}</p>
       </article>`;
+  }
+
+  // Screen to hand to the client at the end of the appointment.
+  function viewDone(a) {
+    const first = (a.client.name || "").trim().split(/\s+/)[0];
+    const when = a.consent.followUpOk && a.wrap.followUpDate ? fmtFollowUp(a.wrap) : "";
+    return `
+      <section class="done">
+        <h1>${first ? `Thanks, ${esc(first)}.<br>` : "Thank you.<br>"}${when ? "Talk soon." : "This was great."}</h1>
+        ${when ? `<p class="done-when">See you ${esc(when)}.</p>` : `<p class="done-when">I'll be in touch if anything comes up that's worth your time.</p>`}
+        <a class="btn" href="#/a/${a.id}/summary">Open my notes</a>
+      </section>`;
   }
 
   function viewSummary(a) {
@@ -594,13 +607,13 @@
     const focusCards = focus.map((x) => `
       <article class="card rec focus">
         <header>
-          <h3>${x.cat.icon} ${esc(x.cat.name)}</h3>
+          <h3>${esc(x.cat.name)}</h3>
           <button class="btn tiny ghost no-print" data-action="override" data-cat="${x.cat.id}" data-val="later">Move to later</button>
         </header>
         ${x.r.current ? `<p class="small"><span class="muted">Uses now:</span> ${esc(x.r.current)}${x.r.spend ? ` · ~${money(+x.r.spend)}/mo` : ""}</p>` : ""}
         <ul class="reasons">${x.reasons.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
         <p class="small"><span class="muted">Look at:</span> ${x.cat.lines.map(esc).join(", ")}</p>
-        <p class="small tip">💡 ${esc(x.cat.talkingPoint)}</p>
+        <p class="small tip">${esc(x.cat.talkingPoint)}</p>
         <label class="small">Products I'll bring
           <textarea rows="2" data-path="recs.plan.${x.cat.id}" placeholder="Specific products + cost-per-use vs. what they use now">${esc(a.recs.plan[x.cat.id])}</textarea>
         </label>
@@ -608,7 +621,7 @@
 
     const mini = (x, actions) => `
       <li class="mini">
-        <div><strong>${x.cat.icon} ${esc(x.cat.name)}</strong>
+        <div><strong>${esc(x.cat.name)}</strong>
           ${x.reasons.length ? `<div class="small muted">${esc(x.reasons.slice(0, 2).join(" · "))}</div>` : ""}</div>
         <div class="no-print row">${actions}</div>
       </li>`;
@@ -635,7 +648,7 @@
         </div>
       </div>
 
-      ${a.health.safetyFlag ? `<div class="caution"><strong>🩺 Doctor check first.</strong> They take prescription medication, are pregnant/nursing, or manage an ongoing condition. Before recommending any supplement, suggest they show the list to their doctor or pharmacist.</div>` : ""}
+      ${a.health.safetyFlag ? `<div class="caution"><strong>Doctor check first.</strong> They take prescription medication, are pregnant/nursing, or manage an ongoing condition. Before recommending any supplement, suggest they show the list to their doctor or pharmacist.</div>` : ""}
       <div class="stats">
         <div class="stat"><div class="label">Follow-up</div><div class="v">${a.consent.followUpOk ? esc(fmtFollowUp(a.wrap) || "Not scheduled") : "Declined"}</div></div>
         <div class="stat"><div class="label">Top priorities</div><div class="v">${cl.values.length ? cl.values.map((v, i) => `${i + 1}. ${esc(valueLabel(v))}`).join("<br>") : "—"}</div></div>
@@ -644,7 +657,7 @@
 
       ${pains.length ? `<section class="card"><div class="label">In their words, what they want better</div><ol class="pains">${pains.map((p) => `<li>${esc(p)}</li>`).join("")}</ol></section>` : ""}
       ${healthLine(a)}
-      ${a.goals.selected.length ? `<p class="small"><span class="muted">Wellness goals:</span> ${a.goals.selected.map((id) => goalById(id)).filter(Boolean).map((x) => (a.goals.top === x.id ? "⭐ " : "") + esc(x.label)).join(", ")}</p>` : ""}
+      ${a.goals.selected.length ? `<p class="small"><span class="muted">Wellness goals:</span> ${a.goals.selected.map((id) => goalById(id)).filter(Boolean).map((x) => (a.goals.top === x.id ? "" : "") + esc(x.label)).join(", ")}</p>` : ""}
       ${cl.sensitivities.length ? `<p class="small"><span class="muted">Preferences:</span> ${cl.sensitivities.map(esc).join(", ")}</p>` : ""}
 
       <h2>Focus for the follow-up <span class="muted">(${focus.length})</span></h2>
@@ -676,10 +689,14 @@
   // ---------- router ----------
   function render() {
     const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
-    document.body.classList.remove("summary-page");
+    document.body.classList.remove("summary-page", "done-page");
     if (parts[0] === "a" && db[parts[1]]) {
       const a = normalize(db[parts[1]]);
-      if (parts[2] === "summary") {
+      if (parts[2] === "done") {
+        if (!consentOk(a)) { location.hash = `#/a/${a.id}/0`; return; }
+        document.body.classList.add("done-page");
+        app.innerHTML = viewDone(a);
+      } else if (parts[2] === "summary") {
         if (!consentOk(a)) { location.hash = `#/a/${a.id}/0`; return; }
         document.body.classList.add("summary-page");
         app.innerHTML = viewSummary(a);
@@ -716,6 +733,7 @@
   app.addEventListener("change", (e) => {
     const el = e.target;
     const a = current();
+    if (el.dataset.jump) { location.hash = `#/a/${el.dataset.jump}/${el.value}`; return; }
     if (!a || !el.dataset.path) return;
     if (el.type === "checkbox") {
       setPath(a, el.dataset.path, el.checked);
