@@ -577,7 +577,7 @@ S.bundle = {
     arrive(t, at3, () => {
       const cx = 1200, cw = 560; card(cx, y, cw, h, { fill: COL.navy, dark: true });
       eyebrow('HER COST', cx + cw / 2, y + 70, COL.amber, 'center');
-      text(countStr(s.perCan, t, at3 + 0.1, 1.3), cx + cw / 2, y + 130, { size: 190, fam: 'serif', color: COL.amber, align: 'center' });
+      text((s.perCan.prefix || '') + fmt(s.perCan.count, s.perCan.decimals || 0) + (s.perCan.suffix || ''), cx + cw / 2, y + 130, { size: 190, fam: 'serif', color: COL.amber, align: 'center' });
       text(s.perCanUnit, cx + cw / 2, y + 340, { size: 42, weight: 700, color: COL.card, align: 'center' });
       text(s.perCanDetail, cx + cw / 2, y + 420, { size: 30, color: COL.light, align: 'center', maxW: 460, lh: 1.35 });
     });
@@ -595,7 +595,7 @@ S.pricing = {
       card(x, y, w, h, dark ? { fill: COL.navy, dark: true } : {});
       eyebrow(o.tag, x + 60, y + 50, dark ? COL.amber : COL.blue);
       const num = parseFloat(o.big.replace(/[^\d.]/g, ''));
-      text(countStr({ prefix: '$', count: num, decimals: 2 }, t, at + 0.1, 1.2), x + 56, y + 92, { size: 150, fam: 'serif', color: dark ? COL.amber : COL.blue });
+      text(o.big, x + 56, y + 92, { size: 150, fam: 'serif', color: dark ? COL.amber : COL.blue });
       text(o.unit, x + 60, y + 258, { size: 34, weight: 700, color: dark ? COL.card : COL.text });
       text(o.detail, x + 60, y + 302, { size: 28, color: dark ? COL.light : COL.soft, maxW: w - 120 });
     });
