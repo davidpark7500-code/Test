@@ -3,8 +3,11 @@
 
   const STORE = "na.assessments.v1";
   const SETTINGS = "na.settings.v1";
+  const SELF = "na.self.v1"; // a customer's own answers, on their own device
   const C = window.CATALOG;
+  const S = C.selfServe;
   const app = document.getElementById("app");
+  const brand = document.querySelector(".brand");
   const importFile = document.getElementById("importFile");
 
   // ---------- storage ----------
@@ -13,9 +16,10 @@
   };
   let db = readJSON(STORE, {});
   let settings = readJSON(SETTINGS, {});
+  let selfDocs = readJSON(SELF, {});
   // Storage can be unavailable (private mode, embedded previews); keep working in memory.
   const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* in-memory only */ } };
-  const persist = () => safeSet(STORE, JSON.stringify(db));
+  const persist = () => { safeSet(STORE, JSON.stringify(db)); safeSet(SELF, JSON.stringify(selfDocs)); };
   const persistSettings = () => safeSet(SETTINGS, JSON.stringify(settings));
 
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -61,6 +65,10 @@
     for (let i = 0; i < ks.length - 1; i++) x = x[ks[i]] ??= {};
     x[ks.at(-1)] = v;
   }
+  // The customer's link shares these screens with the in-person flow, in their own voice.
+  const say = (a, mine, theirs) => (a.selfLink ? mine : theirs);
+  const ask = (a, q) => (a.selfLink ? q : `"${q}"`);
+  const baseOf = (a) => (a.selfLink ? `#/c/${a.selfLink}` : `#/a/${a.id}`);
   const valueLabel = (id) => C.values.find((v) => v.id === id)?.label ?? id;
   const catById = (id) => C.categories.find((c) => c.id === id);
   const money = (n) => "$" + Math.round(n).toLocaleString();
@@ -202,7 +210,8 @@
           <div class="client-main">
             <div class="client-name">${esc(a.client.name || "Unnamed client")}</div>
             <div class="muted small">
-              <span class="pill ${a.status}">${a.status === "complete" ? "Complete" : "In progress"}</span>
+              <span class="pill ${esc(a.status)}">${a.status === "complete" ? "Complete" : "In progress"}</span>
+              ${a.source === "self" ? `<span class="pill saved">Filled out by client</span>` : ""}
               ${isSaved(a) ? `<span class="pill saved">Saved to phone</span>` : `<span class="pill unsaved">Not saved to phone</span>`}
               Started ${fmtDate(a.createdAt)}
               ${a.wrap.followUpDate ? ` · Follow-up <strong>${esc(fmtFollowUp(a.wrap))}</strong>` : ""}
@@ -224,6 +233,7 @@
         <h1 class="hello">Hello<span class="dot-accent">.</span></h1>
         <p class="muted">Learn what they use and what's not working, then build the follow-up from their answers.</p>
         <button class="btn big" data-action="new">Start a new assessment</button>
+        ${S.endpoint ? `<p class="small alt-link">Can't meet in person? <a href="#/send">Send them a link</a></p>` : ""}
       </section>
 
       <section class="card how">
@@ -268,7 +278,7 @@
     return `
       <div class="stephead">
         <span class="stepnum">${pad(idx + 1)} <span class="muted">/ ${pad(s.length)}</span></span>
-        ${consentOk(a) ? `<label class="jump"><span class="sr">Jump to section</span><select data-jump="${a.id}" aria-label="Jump to section">${opts}</select></label>` : ""}
+        ${consentOk(a) ? `<label class="jump"><span class="sr">Jump to section</span><select data-jump="${esc(baseOf(a))}" aria-label="Jump to section">${opts}</select></label>` : ""}
       </div>
       <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="width:${pct}%"></div></div>`;
   }
@@ -314,17 +324,17 @@
       <div class="card grid">
         <label>Name <input type="text" data-path="client.name" value="${esc(cl.name)}" autocomplete="off" required></label>
         <label>Phone <input type="tel" data-path="client.phone" value="${esc(cl.phone)}" autocomplete="off"></label>
-        <label>Email <input type="email" data-path="client.email" value="${esc(cl.email)}" autocomplete="off"></label>
+        <label>${say(a, "Email (for your copy)", "Email")} <input type="email" data-path="client.email" value="${esc(cl.email)}" autocomplete="off"></label>
         <label>People in household <input type="number" min="1" inputmode="numeric" data-path="client.householdSize" value="${esc(cl.householdSize)}"></label>
         <label>Kids at home? <select data-path="client.kids">${opts(["", "No", "Yes, under 5", "Yes, 5–12", "Yes, teens", "Mixed ages"], cl.kids)}</select></label>
         <label>Pets? <input type="text" data-path="client.pets" value="${esc(cl.pets)}" placeholder="e.g. 2 dogs"></label>
       </div>
       <div class="card">
-        <div class="label">What matters most when you buy things for the house? <span class="muted">(tap their top 2, in order)</span></div>
+        <div class="label">What matters most when you buy things for the house? <span class="muted">(${say(a, "tap your top 2, in order", "tap their top 2, in order")})</span></div>
         <div class="chips">${valueChips}</div>
       </div>
       <div class="card">
-        <div class="label">Preferences <span class="muted">(only what they volunteer)</span></div>
+        <div class="label">Preferences <span class="muted">(${say(a, "only if you'd like to share", "only what they volunteer")})</span></div>
         <div class="chips">${sens}</div>
       </div>`;
   }
@@ -356,33 +366,33 @@
 
     return `
       <h1>${esc(c.name)}</h1>
-      ${c.caution ? `<div class="caution">${esc(c.caution)}</div>` : ""}
+      ${c.caution && !a.selfLink ? `<div class="caution">${esc(c.caution)}</div>` : ""}
       <div class="card prompts">
-        <div class="label">Ask</div>
+        <div class="label">${say(a, "A few things to think about", "Ask")}</div>
         <ul>${c.prompts.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
       </div>
       <div class="card">
-        <label>What they use now
-          <textarea rows="2" data-path="${base}.current" placeholder="Brands and products, where they buy them">${esc(r.current)}</textarea>
+        <label>${say(a, "What you use now", "What they use now")}
+          <textarea rows="2" data-path="${base}.current" placeholder="${say(a, "Brands and products, where you buy them", "Brands and products, where they buy them")}">${esc(r.current)}</textarea>
         </label>
-        <div class="label">How happy are they with it?</div>
+        <div class="label">${say(a, "How happy are you with it?", "How happy are they with it?")}</div>
         <div class="sat-row">${sat}<span class="muted small sat-legend">1 = frustrated · 5 = love it</span></div>
         <label>About how much a month? ($)
           <input type="number" min="0" step="1" inputmode="decimal" data-path="${base}.spend" value="${esc(r.spend)}" placeholder="0">
         </label>
       </div>
       <div class="card">
-        <div class="label">Anything that bugs them?</div>
+        <div class="label">${say(a, "Anything that bugs you?", "Anything that bugs them?")}</div>
         <div class="chips">${fr}</div>
-        <label>In their words
-          <input type="text" data-path="${base}.other" value="${esc(r.other)}" placeholder="What they actually said">
+        <label>${say(a, "In your own words", "In their words")}
+          <input type="text" data-path="${base}.other" value="${esc(r.other)}" placeholder="${say(a, "Anything else about it", "What they actually said")}">
         </label>
       </div>
       <div class="card">
         <div class="label">Open to trying something different here?</div>
         <div class="chips">${open}</div>
       </div>
-      <button class="btn ghost" data-action="skip" data-cat="${c.id}">Not relevant, skip</button>`;
+      <button class="btn ghost" data-action="skip" data-cat="${c.id}">${say(a, "Doesn't apply to me, skip", "Not relevant, skip")}</button>`;
   }
 
   function viewHealth(a) {
@@ -395,22 +405,22 @@
     return `
       <h1>Health & lifestyle</h1>
       <div class="card script">
-        <div class="label">Transition</div>
-        <p>"Now some questions about you, not your house. There are no right answers. This helps me figure out what's actually worth suggesting."</p>
+        ${say(a, "", `<div class="label">Transition</div>`)}
+        <p>${ask(a, "Now some questions about you, not your house. There are no right answers. This helps me figure out what's actually worth suggesting.")}</p>
       </div>
       <div class="card">
-        <div class="label">"How are your energy levels during a normal day?"</div>
+        <div class="label">${ask(a, "How are your energy levels during a normal day?")}</div>
         <div class="sat-row">${scale("health.energy", h.energy, "always tired", "great all day")}</div>
-        <div class="label">"How would you rate your stress lately?"</div>
+        <div class="label">${ask(a, "How would you rate your stress lately?")}</div>
         <div class="sat-row">${scale("health.stress", h.stress, "very calm", "very stressed")}</div>
       </div>
       <div class="card">
-        <div class="label">"How are you sleeping?"</div>
+        <div class="label">${ask(a, "How are you sleeping?")}</div>
         ${pick("health.sleepQuality", h.sleepQuality, ["Great", "Good", "Fair", "Poor"])}
         <label>Hours a night, roughly <input type="number" min="0" max="14" step="0.5" inputmode="decimal" data-path="health.sleepHours" value="${esc(h.sleepHours)}"></label>
       </div>
       <div class="card">
-        <div class="label">"What does a typical day of eating look like?"</div>
+        <div class="label">${ask(a, "What does a typical day of eating look like?")}</div>
         ${pick("health.meals", h.meals, ["Mostly home-cooked", "Mix of home and takeout", "Mostly on the go / fast food", "Skips meals often"])}
         <div class="grid">
           <label>Glasses of water a day <input type="number" min="0" inputmode="numeric" data-path="health.water" value="${esc(h.water)}"></label>
@@ -418,16 +428,16 @@
         </div>
       </div>
       <div class="card">
-        <div class="label">"How often do you get to exercise or move?"</div>
+        <div class="label">${ask(a, "How often do you get to exercise or move?")}</div>
         ${pick("health.exercise", h.exercise, ["Rarely", "1–2× a week", "3–4× a week", "5+× a week"])}
-        <div class="label">"How's your digestion, generally?"</div>
+        <div class="label">${ask(a, "How's your digestion, generally?")}</div>
         ${pick("health.digestion", h.digestion, ["Usually fine", "Sometimes off", "Often uncomfortable"])}
-        <label>Anything else they shared <input type="text" data-path="health.notes" value="${esc(h.notes)}" placeholder="In their words"></label>
+        <label>${say(a, "Anything else you'd like to share", "Anything else they shared")} <input type="text" data-path="health.notes" value="${esc(h.notes)}" placeholder="${say(a, "", "In their words")}"></label>
       </div>
       <div class="card">
         <div class="label">Safety check</div>
-        <p class="small muted">"Are you on any prescription medications, pregnant or nursing, or managing an ongoing health condition?" Record yes or no only. You don't need details.</p>
-        ${check("health.safetyFlag", h.safetyFlag, "Yes: they should check with their doctor before starting any supplement")}
+        <p class="small muted">${say(a, "Are you on any prescription medications, pregnant or nursing, or managing an ongoing health condition? A yes is all I need. No details.", `"Are you on any prescription medications, pregnant or nursing, or managing an ongoing health condition?" Record yes or no only. You don't need details.`)}</p>
+        ${check("health.safetyFlag", h.safetyFlag, say(a, "Yes. I'll check with my doctor before starting any supplement", "Yes: they should check with their doctor before starting any supplement"))}
       </div>`;
   }
 
@@ -440,23 +450,23 @@
     return `
       <h1>${esc(P.name)}</h1>
       <div class="card script">
-        <div class="label">Read aloud</div>
-        <p>"Amway has a brand new partnership with ${esc(P.name)}, a clinician-led telehealth service plus online pharmacy. You can start with a blood panel via mail or chat with a licensed telehealth clinician to determine whether additional support like peptide therapy is a fit."</p>
+        ${say(a, "", `<div class="label">Read aloud</div>`)}
+        <p>${ask(a, `Amway has a brand new partnership with ${esc(P.name)}, a clinician-led telehealth service plus online pharmacy. You can start with a blood panel via mail or chat with a licensed telehealth clinician to determine whether additional support like peptide therapy is a fit.`)}</p>
       </div>
-      ${fit.goals.length ? `<p class="small"><span class="muted">Related goals they named:</span> ${fit.goals.map(esc).join(", ")}</p>` : ""}
-      ${a.health.safetyFlag ? `<div class="caution">Their safety check is ticked. If they're interested, they must tell the clinician about their medications or condition.</div>` : ""}
+      ${fit.goals.length && !a.selfLink ? `<p class="small"><span class="muted">Related goals they named:</span> ${fit.goals.map(esc).join(", ")}</p>` : ""}
+      ${a.health.safetyFlag ? `<div class="caution">${say(a, "You said yes on the safety check. If you're interested, be sure to tell the clinician about your medications or condition.", "Their safety check is ticked. If they're interested, they must tell the clinician about their medications or condition.")}</div>` : ""}
       <div class="card">
-        <div class="label">"Have you heard of things like Ozempic, GLP-1s, or other peptide therapies? You may have heard people use them for all kinds of things, like weight loss, better sleep, or building muscle. Any interest in learning more?"</div>
+        <div class="label">${ask(a, "Have you heard of things like Ozempic, GLP-1s, or other peptide therapies? You may have heard people use them for all kinds of things, like weight loss, better sleep, or building muscle. Any interest in learning more?")}</div>
         ${pick("avellum.peptides", v.peptides, [["interested", "Interested"], ["curious", "Curious, want to learn"], ["no", "Not interested"]])}
-        <div class="label">"When did you last have bloodwork done?"</div>
+        <div class="label">${ask(a, "When did you last have bloodwork done?")}</div>
         ${pick("avellum.bloodwork", v.bloodwork, [["recent", "Within the last year"], ["old", "More than a year ago"], ["never", "Never / not sure"]])}
-        <div class="label">"Would you want to see your own numbers so any recommendations are based on your data?"</div>
+        <div class="label">${ask(a, "Would you want to see your own numbers so any recommendations are based on your data?")}</div>
         ${pick("avellum.panel", v.panel, yn)}
-        <div class="label">"Would you be open to a telehealth visit with a licensed clinician about your goals?"</div>
+        <div class="label">${ask(a, "Would you be open to a telehealth visit with a licensed clinician about your goals?")}</div>
         ${pick("avellum.telehealth", v.telehealth, yn)}
-        <label>Notes <input type="text" data-path="avellum.notes" value="${esc(v.notes)}" placeholder="Questions they asked, concerns"></label>
+        <label>Notes <input type="text" data-path="avellum.notes" value="${esc(v.notes)}" placeholder="${say(a, "Any questions or concerns", "Questions they asked, concerns")}"></label>
       </div>
-      <div class="caution small">${esc(P.note)}</div>`;
+      ${a.selfLink ? "" : `<div class="caution small">${esc(P.note)}</div>`}`;
   }
 
   function partnerFit(a) {
@@ -495,7 +505,7 @@
     ).join("");
     return `
       <h1>Wellness goals</h1>
-      <div class="caution">Ask freely. Two lines: don't diagnose, and don't say a product treats a condition. Use the catalog's support wording.</div>
+      ${a.selfLink ? "" : `<div class="caution">Ask freely. Two lines: don't diagnose, and don't say a product treats a condition. Use the catalog's support wording.</div>
       <div class="card prompts">
         <div class="label">Ask</div>
         <ul>
@@ -503,21 +513,21 @@
           <li>"Which one matters most to you?"</li>
           <li>"What are you doing for it now? Have you tried anything that didn't work?"</li>
         </ul>
-      </div>
+      </div>`}
       <div class="card">
-        <div class="label">Goals they mention</div>
+        <div class="label">${say(a, "What are some of your health goals right now?", "Goals they mention")}</div>
         <div class="chips">${chips}</div>
         ${g.selected.length > 1 ? `<div class="label">Which matters most?</div><div class="chips">${topChips}</div>` : ""}
-        <label>In their words
+        <label>${say(a, "In your own words", "In their words")}
           <input type="text" data-path="goals.words" value="${esc(g.words)}" placeholder="e.g. &quot;I crash every afternoon around 3&quot;">
         </label>
       </div>
       <div class="card">
-        <label>What they're doing for it now
+        <label>${say(a, "What you're doing for it now", "What they're doing for it now")}
           <input type="text" data-path="goals.current" value="${esc(g.current)}" placeholder="e.g. 3 coffees a day, walks after dinner">
         </label>
         <label>Tried before that didn't work
-          <input type="text" data-path="goals.tried" value="${esc(g.tried)}" placeholder="e.g. melatonin made them groggy">
+          <input type="text" data-path="goals.tried" value="${esc(g.tried)}" placeholder="${say(a, "e.g. melatonin made me groggy", "e.g. melatonin made them groggy")}">
         </label>
       </div>
       <div class="card">
@@ -566,17 +576,21 @@
     idx = Math.max(0, Math.min(idx, s.length - 1));
     if (idx > 0 && !consentOk(a)) idx = 0;
     const id = s[idx];
-    const body = id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : id === "goals" ? viewGoals(a) : id === "health" ? viewHealth(a) : id === "partner" ? viewPartner(a) : viewCategory(a, catById(id));
+    const self = !!a.selfLink;
+    const base = baseOf(a);
+    const body = self && id === "intro" ? viewSelfIntro(a) : self && id === "wrap" ? viewSelfWrap(a) : id === "intro" ? viewIntro(a) : id === "household" ? viewHousehold(a) : id === "wrap" ? viewWrap(a) : id === "goals" ? viewGoals(a) : id === "health" ? viewHealth(a) : id === "partner" ? viewPartner(a) : viewCategory(a, catById(id));
     const last = idx === s.length - 1;
     const blocked = id === "intro" && !consentOk(a);
     return `
       ${progress(a, idx)}
       <div class="step">${body}</div>
       <div class="stepnav">
-        ${idx > 0 ? `<a class="btn ghost" href="#/a/${a.id}/${idx - 1}">← Back</a>` : `<a class="btn ghost" href="#/">Exit</a>`}
+        ${idx > 0 ? `<a class="btn ghost" href="${base}/${idx - 1}">← Back</a>` : self ? "<span></span>" : `<a class="btn ghost" href="#/">Exit</a>`}
         ${last
-          ? `<a class="btn" href="#/a/${a.id}/done">Finish</a>`
-          : `<a class="btn ${blocked ? "disabled" : ""}" ${blocked ? 'aria-disabled="true"' : `href="#/a/${a.id}/${idx + 1}"`}>Next →</a>`}
+          ? (self
+            ? `<button class="btn" data-action="self-send" ${selfUi.busy ? "disabled" : ""}>${selfUi.busy ? "Sending…" : "Send my answers"}</button>`
+            : `<a class="btn" href="${base}/done">Finish</a>`)
+          : `<a class="btn ${blocked ? "disabled" : ""}" ${blocked ? 'aria-disabled="true"' : `href="${base}/${idx + 1}"`}>Next →</a>`}
       </div>`;
   }
 
@@ -709,11 +723,289 @@
       </aside>`;
   }
 
+  // ---------- self-serve links ----------
+  // Anyone with the access code can make links. A link carries a one-time token plus the names to show;
+  // the address results go to stays on the server, so a customer can't redirect them.
+  // Answers stay on the customer's device until they send.
+  const selfUi = { busy: false, err: "" };
+  const sendUi = { busy: false, err: "", link: "", name: "", copied: false };
+
+  const ownerOf = (a) => (a.ownerName || "").trim().split(/\s+/)[0] || "your contact";
+
+  const b64u = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64u = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (ch) => ch.charCodeAt(0)));
+
+  function parseInvite(raw) {
+    try {
+      const o = JSON.parse(unb64u(raw || ""));
+      return /^[a-f0-9]{32}$/.test(o.t) ? { t: o.t, n: String(o.n ?? ""), o: String(o.o ?? ""), raw } : null;
+    } catch { return null; }
+  }
+
+  function selfDoc(inv) {
+    if (!selfDocs[inv.t]) {
+      const now = new Date().toISOString();
+      selfDocs[inv.t] = { id: uid(), createdAt: now, updatedAt: now, source: "self", selfLink: inv.raw, selfToken: inv.t, ownerName: inv.o, client: { name: inv.n } };
+      persist();
+    }
+    return normalize(selfDocs[inv.t]);
+  }
+
+  const api = (body) => fetch(S.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, // plain text keeps this a simple cross-site request
+    body: JSON.stringify(body),
+  }).then((r) => r.json());
+
+  function viewBadLink() {
+    return `<h1>This link isn't working</h1><p class="muted">Ask the person who sent it for a new one.</p>`;
+  }
+
+  function viewSelfIntro(a) {
+    const first = (a.client.name || "").trim().split(/\s+/)[0];
+    return `
+      <h1>${first ? `Hi ${esc(first)}` : "Hi"}<span class="dot-accent">.</span></h1>
+      <div class="card script">
+        <p>Thanks for taking a few minutes. This isn't a sales pitch, and I won't be recommending anything here. I'd like to learn what you use around the house now, what you like, and what bugs you.</p>
+        <p>If I think something could genuinely work better or cost less, I'll put together a short list for us to go over. If what you have works, I'll tell you to keep it.</p>
+        <p class="small">${esc(ownerOf(a))}</p>
+      </div>
+      <div class="card">
+        <div class="label">How this works</div>
+        <ul class="small">
+          <li>It takes about 10 minutes. Skip anything that doesn't apply.</li>
+          <li>When you finish, your answers, including the health questions, are emailed to ${esc(ownerOf(a))}, and you get a copy.</li>
+          <li>Your progress saves on this device, so you can come back to this link to finish.</li>
+        </ul>
+        ${check("consent.storeConsent", a.consent.storeConsent, `I'm OK with sharing my answers with ${esc(ownerOf(a))}`)}
+        ${!consentOk(a) ? `<p class="small warn">Tick this to continue.</p>` : ""}
+      </div>`;
+  }
+
+  function viewSelfWrap(a) {
+    const w = a.wrap;
+    return `
+      <h1>Last step</h1>
+      <div class="card">
+        <div class="label">Out of everything here, what are the top one to three things you'd most like to be better?</div>
+        <label>#1 <input type="text" data-path="wrap.pain1" value="${esc(w.pain1)}"></label>
+        <label>#2 <input type="text" data-path="wrap.pain2" value="${esc(w.pain2)}"></label>
+        <label>#3 <input type="text" data-path="wrap.pain3" value="${esc(w.pain3)}"></label>
+      </div>
+      <div class="card">
+        ${check("consent.followUpOk", a.consent.followUpOk, `I'm open to a follow-up with ${esc(ownerOf(a))}`)}
+        ${a.consent.followUpOk ? `
+        <div class="grid">
+          <label>Best day <input type="date" data-path="wrap.followUpDate" value="${esc(w.followUpDate)}"></label>
+          <label>Best time <input type="time" data-path="wrap.followUpTime" value="${esc(w.followUpTime)}"></label>
+        </div>
+        <p class="small muted">${esc(ownerOf(a))} will confirm with you.</p>` : ""}
+      </div>
+      <div class="card">
+        <label>Anything else you'd like ${esc(ownerOf(a))} to know
+          <textarea rows="3" data-path="wrap.notes">${esc(w.notes)}</textarea>
+        </label>
+        <label>Your email, for your copy <input type="email" data-path="client.email" value="${esc(a.client.email)}"></label>
+      </div>
+      ${selfUi.err ? `<p class="small warn" role="alert">${esc(selfUi.err)}</p>` : ""}`;
+  }
+
+  function viewSelfDone(a) {
+    const first = (a.client.name || "").trim().split(/\s+/)[0];
+    const when = a.consent.followUpOk && a.wrap.followUpDate ? fmtFollowUp(a.wrap) : "";
+    return `
+      <section class="done">
+        <h1>${first ? `Thanks, ${esc(first)}.` : "Thank you."}<br>All done.</h1>
+        <p class="done-when">${when ? `${esc(ownerOf(a))} will confirm ${esc(when)} with you.` : `${esc(ownerOf(a))} will be in touch if anything comes up that's worth your time.`}</p>
+        <p class="small">${a.selfCopySent === false
+          ? `Your answers reached ${esc(ownerOf(a))}, but your copy couldn't be sent to ${esc(a.client.email)}. Just ask ${esc(ownerOf(a))} for it.`
+          : `A copy of your answers is on its way to ${esc(a.client.email)}.`}</p>
+      </section>`;
+  }
+
+  // Plain-text answers for both emails. Customer-safe: no scoring or coaching notes.
+  function answerSections(a) {
+    const cl = a.client, h = a.health, g = a.goals, v = a.avellum;
+    const out = [];
+    const add = (title, lines) => { lines = lines.filter(Boolean); if (lines.length) out.push({ h: title, lines }); };
+    add("About you", [cl.name, cl.phone, cl.email, cl.householdSize && `People in household: ${cl.householdSize}`, cl.kids && `Kids at home: ${cl.kids}`, cl.pets && `Pets: ${cl.pets}`]);
+    add("What matters most", cl.values.map((id, i) => `${i + 1}. ${valueLabel(id)}`));
+    add("Preferences", cl.sensitivities);
+    const yn = { yes: "Yes", maybe: "Maybe", no: "No" };
+    for (const id of steps()) {
+      if (id === "health") {
+        add("Health & lifestyle", [
+          h.energy != null && `Energy: ${h.energy}/10`, h.stress != null && `Stress: ${h.stress}/10`,
+          h.sleepQuality && `Sleep: ${h.sleepQuality}`, h.sleepHours && `Hours of sleep: ${h.sleepHours}`, h.meals && `Eating: ${h.meals}`,
+          h.water && `Glasses of water a day: ${h.water}`, h.caffeine && `Coffee / energy drinks a day: ${h.caffeine}`,
+          h.exercise && `Exercise: ${h.exercise}`, h.digestion && `Digestion: ${h.digestion}`, h.notes,
+          h.safetyFlag && "Safety check: yes. Check with a doctor before starting any supplement.",
+        ]);
+      } else if (id === "goals") {
+        const label = (x) => goalById(x)?.label;
+        add("Wellness goals", [
+          g.selected.length && `Goals: ${g.selected.map(label).filter(Boolean).join(", ")}`, g.top && `Matters most: ${label(g.top)}`,
+          g.words, g.current && `Doing now: ${g.current}`, g.tried && `Tried before: ${g.tried}`, g.openness && `Open to products: ${yn[g.openness]}`,
+        ]);
+      } else if (id === "partner") {
+        const said = { interested: "Interested", curious: "Curious, want to learn", no: "Not interested", recent: "Within the last year", old: "More than a year ago", never: "Never / not sure", ...yn };
+        add(C.partner.name, [
+          v.peptides && `Peptide therapies: ${said[v.peptides]}`, v.bloodwork && `Last bloodwork: ${said[v.bloodwork]}`,
+          v.panel && `Wants to see own numbers: ${said[v.panel]}`, v.telehealth && `Open to a telehealth visit: ${said[v.telehealth]}`, v.notes,
+        ]);
+      } else if (catById(id)) {
+        const c = catById(id), r = a.categories[id];
+        if (r.skip) continue;
+        const bugs = r.frustrations.map((f) => c.frustrations.find((x) => x.id === f)?.label).filter(Boolean);
+        add(c.name, [
+          r.current && `Uses now: ${r.current}`, r.satisfaction != null && `Happy with it: ${r.satisfaction}/5`, r.spend && `About $${r.spend} a month`,
+          bugs.length && `Bugs: ${bugs.join(", ")}`, r.other, r.openness && `Open to something different: ${yn[r.openness]}`,
+        ]);
+      }
+    }
+    add("Top things to improve", [a.wrap.pain1, a.wrap.pain2, a.wrap.pain3]);
+    add("Follow-up", [a.consent.followUpOk ? (fmtFollowUp(a.wrap) ? `Best time: ${fmtFollowUp(a.wrap)}` : "Open to a follow-up, no time picked") : "No follow-up for now"]);
+    add("Anything else", [a.wrap.notes]);
+    return out;
+  }
+
+  // Prep notes, added above the answers in the link owner's email only.
+  function ownerSections(a) {
+    const recs = recommend(a), fit = partnerFit(a);
+    const names = (b) => recs.filter((x) => x.bucket === b).map((x) => x.cat.name);
+    const out = [];
+    if (a.health.safetyFlag) out.push({ h: "Doctor check first", lines: ["They take prescription medication, are pregnant/nursing, or manage an ongoing condition. Before recommending any supplement, suggest they show the list to their doctor or pharmacist."] });
+    if (a.consent.followUpOk) out.push({ h: "Before the follow-up", lines: ["Confirm the time with them.", "With their OK, create their free customer account at Amway.com. You'll just need their name, phone number, and email.", "Then create a free shopping list so it's ready for the follow-up."] });
+    const focus = recs.filter((x) => x.bucket === "focus");
+    if (focus.length) out.push({ h: "Focus for the follow-up", lines: focus.map((x) => `${x.cat.name}: ${x.reasons.join("; ")}`) });
+    if (fit.level === "refer" || fit.level === "maybe") out.push({ h: `${C.partner.name} referral`, lines: fit.reasons });
+    if (names("later").length) out.push({ h: "Maybe later", lines: [names("later").join(", ")] });
+    if (names("keep").length) out.push({ h: "Keep what works", lines: [names("keep").join(", ")] });
+    return out;
+  }
+
+  async function selfSend(a) {
+    if (selfUi.busy) return;
+    selfUi.err = "";
+    const email = (a.client.email || "").trim();
+    if (!(a.client.name || "").trim()) selfUi.err = "Please add your name on the Household step.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) selfUi.err = "Please add your email so you can get a copy.";
+    if (selfUi.err) { render(); return; }
+
+    selfUi.busy = true; render();
+    const { selfLink, selfToken, ...clean } = a;
+    let res;
+    try {
+      res = await api({ action: "submit", token: selfToken, assessment: clean, answers: answerSections(a), owner: ownerSections(a) });
+    } catch { res = { ok: false, error: "network" }; }
+    selfUi.busy = false;
+
+    if (res.ok || res.error === "used") {
+      a.selfSent = new Date().toISOString();
+      if (res.ok) a.selfCopySent = res.copySent;
+      touch(a);
+    } else {
+      selfUi.err = res.error === "expired" || res.error === "invalid"
+        ? `This link is no longer active. Ask ${ownerOf(a)} for a new one. Your answers are still saved on this device.`
+        : res.error === "busy"
+          ? "Sending is at its daily limit. Please try again tomorrow. Your answers are saved."
+          : "That didn't send. Check your connection and try again. Your answers are saved.";
+    }
+    render();
+  }
+
+  function viewSend() {
+    const u = sendUi;
+    if (!S.endpoint) return `
+      <h1>Send a link</h1>
+      <div class="caution">Sending isn't connected yet.</div>
+      <a class="btn ghost" href="#/">← Back</a>`;
+    return `
+      <h1>Send a link</h1>
+      <p class="muted">For someone who can't meet in person. They fill it out on their own, the answers are emailed to you and to them, and they can pick a follow-up time.</p>
+      <div class="card">
+        <label>Your name <input type="text" data-setting="ownerName" value="${esc(settings.ownerName)}" autocomplete="name"></label>
+        <label>Your email (results go here) <input type="email" data-setting="ownerEmail" value="${esc(settings.ownerEmail)}" autocomplete="email"></label>
+        <label>Customer's name <input type="text" data-setting="inviteName" value="${esc(settings.inviteName)}" autocomplete="off"></label>
+        ${settings.accessCodeOk ? "" : `
+        <label>Access code <input type="password" data-setting="accessCode" autocomplete="off"></label>
+        <p class="small muted">Get this from your team. This device will remember it.</p>`}
+        ${u.err ? `<p class="small warn" role="alert">${esc(u.err)}</p>` : ""}
+        <button class="btn" data-action="mint" ${u.busy ? "disabled" : ""}>${u.busy ? "Creating…" : "Create link"}</button>
+      </div>
+      ${u.link ? `
+      <div class="card">
+        <div class="label">Link${u.name ? ` for ${esc(u.name)}` : ""}</div>
+        <p class="link-out">${esc(u.link)}</p>
+        <div class="row wrap">
+          <button class="btn" data-action="share-link">Share</button>
+          <button class="btn ghost" data-action="copy-link">${u.copied ? "Copied" : "Copy link"}</button>
+        </div>
+        <p class="small muted">It works for one person, one time, for 60 days. When they finish, you'll get an email with a file to load here under <em>Load saved files</em>.</p>
+      </div>` : ""}
+      <a class="btn ghost" href="#/">← Back</a>`;
+  }
+
+  async function createLink() {
+    const u = sendUi;
+    if (u.busy) return;
+    const name = (settings.inviteName || "").trim();
+    const ownerName = (settings.ownerName || "").trim();
+    const ownerEmail = (settings.ownerEmail || "").trim();
+    u.err = !ownerName ? "Please add your name." : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail) ? "Please add your email, so results can reach you." : (settings.accessCode || "").length < 6 ? "That access code doesn't match." : "";
+    if (u.err) { render(); return; }
+    Object.assign(u, { busy: true, err: "", link: "", copied: false }); render();
+    let res;
+    try { res = await api({ action: "mint", code: settings.accessCode, ownerName, ownerEmail }); } catch { res = { ok: false, error: "network" }; }
+    u.busy = false;
+    if (res.ok) {
+      u.link = `${location.origin}${location.pathname}#/c/${b64u(JSON.stringify({ t: res.token, n: name, o: ownerName }))}`;
+      u.name = name;
+      settings.inviteName = "";
+      settings.accessCodeOk = true;
+    } else if (res.error === "code") {
+      u.err = "That access code doesn't match.";
+      delete settings.accessCode;
+      delete settings.accessCodeOk;
+    } else {
+      u.err = res.error === "locked" ? "Too many wrong tries. Wait an hour and try again." : "That didn't work. Check your connection and try again.";
+    }
+    persistSettings(); render();
+  }
+
+  async function copyLink() {
+    try { await navigator.clipboard.writeText(sendUi.link); sendUi.copied = true; }
+    catch { sendUi.err = "Couldn't copy. Press and hold the link to copy it."; }
+    render();
+  }
+
+  function shareLink() {
+    const first = sendUi.name.split(/\s+/)[0];
+    const text = `${first ? `Hi ${first}, here's` : "Here's"} the short questionnaire I mentioned. It takes about 10 minutes:`;
+    if (navigator.share) navigator.share({ text, url: sendUi.link }).catch(() => {});
+    else copyLink();
+  }
+
+
   // ---------- router ----------
   function render() {
     const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     document.body.classList.remove("summary-page", "done-page");
-    if (parts[0] === "a" && db[parts[1]]) {
+    const invite = parts[0] === "c" ? parseInvite(parts[1]) : null;
+    // Customers stay on their own form, with no way into the client list.
+    if (parts[0] === "c") brand.removeAttribute("href"); else brand.setAttribute("href", "#/");
+    if (parts[0] === "c") {
+      if (!invite) { app.innerHTML = viewBadLink(); return; }
+      const a = selfDoc(invite);
+      if (a.selfSent) {
+        document.body.classList.add("done-page");
+        app.innerHTML = viewSelfDone(a);
+      } else {
+        app.innerHTML = viewStep(a, parseInt(parts[2] || "0", 10) || 0);
+      }
+    } else if (parts[0] === "send") {
+      app.innerHTML = viewSend();
+    } else if (parts[0] === "a" && db[parts[1]]) {
       const a = normalize(db[parts[1]]);
       if (parts[2] === "done") {
         if (!consentOk(a)) { location.hash = `#/a/${a.id}/0`; return; }
@@ -733,6 +1025,7 @@
 
   function current() {
     const parts = location.hash.replace(/^#\/?/, "").split("/");
+    if (parts[0] === "c") return selfDocs[parseInvite(parts[1])?.t] ?? null;
     return parts[0] === "a" ? db[parts[1]] : null;
   }
 
@@ -751,12 +1044,13 @@
     if (!a || !el.dataset.path || el.type === "checkbox") return;
     setPath(a, el.dataset.path, el.value);
     touch(a);
+    if (selfUi.err) { selfUi.err = ""; app.querySelector('[role="alert"]')?.remove(); }
   });
 
   app.addEventListener("change", (e) => {
     const el = e.target;
     const a = current();
-    if (el.dataset.jump) { location.hash = `#/a/${el.dataset.jump}/${el.value}`; return; }
+    if (el.dataset.jump) { location.hash = `${el.dataset.jump}/${el.value}`; return; }
     if (!a || !el.dataset.path) return;
     if (el.type === "checkbox") {
       setPath(a, el.dataset.path, el.checked);
@@ -816,7 +1110,7 @@
       case "skip": {
         a.categories[el.dataset.cat].skip = true; touch(a);
         const i = steps().indexOf(el.dataset.cat);
-        location.hash = `#/a/${a.id}/${i + 1}`;
+        location.hash = `${baseOf(a)}/${i + 1}`;
         break;
       }
       case "override": {
@@ -831,6 +1125,10 @@
       case "export": saveToPhone(Object.values(db).map(normalize)); break;
       case "csv": download(`needs-assessment-followups-${today()}.csv`, toCSV(), "text/csv"); break;
       case "import": importFile.click(); break;
+      case "mint": createLink(); break;
+      case "copy-link": copyLink(el); break;
+      case "share-link": shareLink(); break;
+      case "self-send": selfSend(a); break;
     }
   });
 
@@ -855,7 +1153,8 @@
         const data = parseSaved(await f.text());
         const incoming = data.assessments || data;
         for (const [id, a] of Object.entries(incoming)) {
-          if (!a || typeof a !== "object" || !a.id) continue;
+          // Customer results arrive as files, so an id can't be trusted to be safe in a link.
+          if (!a || typeof a !== "object" || a.id !== id || !/^[\w-]{1,40}$/.test(id)) continue;
           if (!db[id] || (a.updatedAt || "") >= (db[id].updatedAt || "")) { db[id] = normalize(a); db[id].savedAt = db[id].savedAt || a.updatedAt; n++; }
         }
       } catch { bad++; }
@@ -903,7 +1202,7 @@
         if (r.skip) return `<li><b>${esc(c.name)}:</b> skipped</li>`;
         if (!(r.current || r.satisfaction != null || r.frustrations.length)) return "";
         const fr = r.frustrations.map((id) => c.frustrations.find((f) => f.id === id)?.label).filter(Boolean);
-        return `<li><b>${esc(c.name)}:</b> ${esc(r.current || "—")}${r.satisfaction != null ? ` · ${r.satisfaction}/5` : ""}${r.spend ? ` · $${esc(r.spend)}/mo` : ""}${fr.length ? ` · ${esc(fr.join(", "))}` : ""}${r.other ? ` · “${esc(r.other)}”` : ""}${r.openness ? ` · open: ${esc(r.openness)}` : ""}</li>`;
+        return `<li><b>${esc(c.name)}:</b> ${esc(r.current || "—")}${r.satisfaction != null ? ` · ${esc(r.satisfaction)}/5` : ""}${r.spend ? ` · $${esc(r.spend)}/mo` : ""}${fr.length ? ` · ${esc(fr.join(", "))}` : ""}${r.other ? ` · “${esc(r.other)}”` : ""}${r.openness ? ` · open: ${esc(r.openness)}` : ""}</li>`;
       }).join("");
       return `<article>
         <h1>${esc(cl.name || "Unnamed client")}</h1>

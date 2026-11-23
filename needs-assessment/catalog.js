@@ -3,6 +3,11 @@
 // Product lines are a starting point only: verify names and availability against your market's current catalog.
 
 window.CATALOG = {
+  // Self-serve links. endpoint is the Web app URL of backend/Code.gs; leave "" to turn links off.
+  selfServe: {
+    endpoint: "",
+  },
+
   // Client priorities. They pick their top 2, in order.
   values: [
     { id: "price", label: "Saving money" },
@@ -200,7 +205,7 @@ window.CATALOG = {
         "Do you use an air purifier?",
       ],
       frustrations: [
-        { id: "taste", label: "Doesn't like the tap water taste", values: ["performance"] },
+        { id: "taste", label: "Tap water taste", values: ["performance"] },
         { id: "bottles", label: "Buying / hauling bottled water", values: ["convenience", "eco", "price"] },
         { id: "filters", label: "Pitcher filters are a hassle", values: ["convenience"] },
         { id: "air", label: "Concerned about indoor air (dust, pets, cooking)", values: ["performance"] },
@@ -219,7 +224,7 @@ window.CATALOG = {
       frustrations: [
         { id: "worn", label: "Cookware worn / coating peeling", values: ["performance"] },
         { id: "time", label: "Cooking takes too long", values: ["convenience"] },
-        { id: "healthier", label: "Wants to cook with less oil", values: ["ingredients"] },
+        { id: "healthier", label: "Cooking with less oil", values: ["ingredients"] },
       ],
       lines: ["iCook™ cookware"],
       talkingPoint: "Only raise this if they're already replacing cookware.",

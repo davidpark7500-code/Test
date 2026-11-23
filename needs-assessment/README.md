@@ -2,7 +2,7 @@
 
 A mobile-friendly web app for running a needs-first first appointment and preparing recommendations for the follow-up.
 
-**Open `index.html` in a browser.** There is no build step and no server. All client data stays in that browser's local storage on that device.
+**Open `index.html` in a browser.** There is no build step. Client data stays in that browser's local storage on that device. The one exception is self-serve links: when a customer finishes, their answers are emailed to the person who sent the link and to them through `backend/Code.gs` (see `HANDOFF.md`).
 
 ## How it works (training video)
 `video/how-it-works.mp4` is a 78-second vertical video, shown on the app's home screen. It covers the mindset and the four-step process: tell your story, explain today's goal, ask questions and listen, and schedule the follow-up.

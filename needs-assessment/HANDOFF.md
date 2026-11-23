@@ -13,6 +13,7 @@ A mobile web app David uses at a first appointment with a potential customer for
 |---|---|
 | `index.html`, `styles.css`, `app.js` | The app: hash router, views, scoring, save/restore, CSV |
 | `catalog.js` | **Editable config:** categories, questions, frustrations, product lines, wellness goals, Avellum partner settings |
+| `backend/Code.gs` | Google Apps Script backend for self-serve links: creates links and emails results |
 | `PORTFOLIO.md` | Need → Amway brand map with confidence tags, plus wellness-conversation rules |
 | `video/scenes.js` | Training-video script and on-screen text (one entry per scene) |
 | `video/how-it-works.html` | Canvas animation of the video (open it to preview) |
@@ -30,7 +31,17 @@ Intro (tell your story → explain today's goal → notes consent) → Household
 - **Avellum Health** (Amway's partner store; telehealth, clinician-reviewed **compounded peptide therapy, not FDA-approved**) is its **own questionnaire section**, not a per-product option. It's framed as a referral to a blood panel or clinician consult, never a specific peptide. The first question on the Avellum step asks about Ozempic, GLP-1s, and other peptide therapies, because David says Avellum offers GLP-1s. David removed the "not FDA-approved" line from the app's on-screen note because that gets covered later. Link: https://www.amway.com/en_US/avellum-health
 - **Design:** based on a reference David liked: white, mint `#bde3da`, Montserrat, solid black rectangular buttons, underline-only fields, mint diagonal shapes. No emoji, cards, or pills (they read as "AI-made").
 - **Save to phone:** each assessment saves as a readable `.html` file with the data embedded (share sheet → Files, Drive, or Dropbox). "Load saved files" restores them.
+- **Self-serve links:** the in-person assessment stays the main process. "Send them a link" on the home screen is the alternative for people who can't meet. Customers answer the same questions in their own voice, with David's coaching notes, scoring, and Avellum instructions hidden. The in-person rule about not mentioning data storage doesn't apply here: the customer is told their answers are emailed to the person who sent the link and to them, and must agree first.
 - **Training video:** covers the mindset and 4-step process. David had the income-promises line removed from the story step, in the app and the video.
+
+## Self-serve links
+- Anyone with the access code can use them, not just David. On the Send a link screen each person enters their name and email once. Results go to that person and their customer, and the customer sees that person's name.
+- The address results go to is stored with the link on the server, not in the URL, so a customer can't redirect results.
+- `backend/Code.gs` is a Google Apps Script web app (Execute as: Me, Access: Anyone). It creates one-time links, then emails results: the link's owner gets prep notes, the answers, and a `.json` file that "Load saved files" imports; the customer gets their answers only. Replies go to the owner, not the sending account.
+- Turn it on by putting the Web app URL in `catalog.js` under `selfServe.endpoint`. After editing `Code.gs`, redeploy a new version of the same deployment so the URL stays the same.
+- The first access code used becomes the code. It's stored only as a salted hash in Script Properties. To change it, delete the `salt` and `codeHash` properties and create a link with the new code.
+- Links work once and expire after 60 days. A personal Google account can send to about 100 recipients a day in total, shared by everyone, and each result uses 2. Past that the customer is told to try tomorrow and their answers stay saved.
+- Files loaded into the app come from customers, so treat them as untrusted (ids are checked on import and everything is escaped).
 
 ## To do (in priority order)
 1. **ElevenLabs voiceover.** David wants AI narration.
