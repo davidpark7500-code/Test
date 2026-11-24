@@ -233,7 +233,7 @@
         <h1 class="hello">Hello<span class="dot-accent">.</span></h1>
         <p class="muted">Learn what they use and what's not working, then build the follow-up from their answers.</p>
         <button class="btn big" data-action="new">Start a new assessment</button>
-        ${S.endpoint ? `<p class="small alt-link">Can't meet in person? <a href="#/send">Send them a link</a></p>` : ""}
+        ${S.endpoint ? `<p class="small alt-link">Alternatively, <a href="#/send">Click here to send link for self serve</a></p>` : ""}
       </section>
 
       <section class="card how">
