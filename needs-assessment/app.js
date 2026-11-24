@@ -922,7 +922,7 @@
       <a class="btn ghost" href="#/">← Back</a>`;
     return `
       <h1>Send a link</h1>
-      <p class="muted">For someone who can't meet in person. They fill it out on their own, the answers are emailed to you and to them, and they can pick a follow-up time.</p>
+      <p class="muted">They fill it out on their own, the answers are emailed to you and to them, and they can pick a follow-up time.</p>
       <div class="card">
         <label>Your name <input type="text" data-setting="ownerName" value="${esc(settings.ownerName)}" autocomplete="name"></label>
         <label>Your email (results go here) <input type="email" data-setting="ownerEmail" value="${esc(settings.ownerEmail)}" autocomplete="email"></label>
