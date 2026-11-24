@@ -38,6 +38,7 @@ Intro (tell your story → explain today's goal → notes consent) → Household
 - Anyone with the access code can use them, not just David. On the Send a link screen each person enters their name and email once. Results go to that person and their customer, and the customer sees that person's name.
 - The address results go to is stored with the link on the server, not in the URL, so a customer can't redirect results.
 - `backend/Code.gs` is a Google Apps Script web app (Execute as: Me, Access: Anyone). It creates one-time links, then emails results: the link's owner gets prep notes, the answers, and a `.json` file that "Load saved files" imports; the customer gets their answers only. Replies go to the owner, not the sending account.
+- Live sender: Apps Script project "Customer Needs Assessment sender" on customerneedsassessmentbox@gmail.com (a dedicated account David owns; its Sent folder holds copies of every result, so keep that login private).
 - Turn it on by putting the Web app URL in `catalog.js` under `selfServe.endpoint`. After editing `Code.gs`, redeploy a new version of the same deployment so the URL stays the same.
 - The first access code used becomes the code. It's stored only as a salted hash in Script Properties. To change it, delete the `salt` and `codeHash` properties and create a link with the new code.
 - Links work once and expire after 60 days. A personal Google account can send to about 100 recipients a day in total, shared by everyone, and each result uses 2. Past that the customer is told to try tomorrow and their answers stay saved.

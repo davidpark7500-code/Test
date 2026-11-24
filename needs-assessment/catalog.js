@@ -5,7 +5,7 @@
 window.CATALOG = {
   // Self-serve links. endpoint is the Web app URL of backend/Code.gs; leave "" to turn links off.
   selfServe: {
-    endpoint: "",
+    endpoint: "https://script.google.com/macros/s/AKfycbxJNwfIIFe7h8m97_-99ItDSIVF8MzioZpjJ6n8JuSVSRQpd-hNhYr-j1LgyEyUAxc/exec",
   },
 
   // Client priorities. They pick their top 2, in order.
