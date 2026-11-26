@@ -46,7 +46,7 @@ class Clip:
             self.cur = b; self.idx += 1
         return Image.frombytes("RGB", (W, H), self.cur)
 import os
-C = {i: Clip(f"{CLIPS}/clip{i}.mp4") for i in range(16) if os.path.exists(f"{CLIPS}/clip{i}.mp4")}
+C = {i: Clip(f"{CLIPS}/clip{i}.mp4") for i in range(17) if os.path.exists(f"{CLIPS}/clip{i}.mp4")}
 
 def grade(im, mode):
     if mode == "cold":
@@ -218,7 +218,7 @@ def sc_face(t):
 
 def sc_side(t):
     lt = t - 32.7
-    segs = [(0.0, 12, 0.92, 0.0), (4.9, 13, 0.92, 0.0), (9.8, 14, 1.0, 0.3), (14.7, 15, 0.95, 0.0)]
+    segs = [(0.0, 12, 0.92, 0.0), (4.9, 13, 0.92, 0.0), (9.8, 16, 1.0, 0.2), (14.7, 15, 0.95, 0.0)]
     def shot(k, l): return grade(C[segs[k][1]].at(l - segs[k][0], segs[k][2], segs[k][3]), "warm")
     k = max(i for i, sg in enumerate(segs) if lt >= sg[0])
     im = shot(k, lt)
