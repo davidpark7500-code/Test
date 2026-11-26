@@ -45,7 +45,8 @@ class Clip:
             if len(b) < W * H * 3: break
             self.cur = b; self.idx += 1
         return Image.frombytes("RGB", (W, H), self.cur)
-C = {i: Clip(f"{CLIPS}/clip{i}.mp4") for i in range(5)}
+import os
+C = {i: Clip(f"{CLIPS}/clip{i}.mp4") for i in range(10) if os.path.exists(f"{CLIPS}/clip{i}.mp4")}
 
 def grade(im, mode):
     if mode == "cold":
@@ -252,6 +253,90 @@ def sc_end(t):
         d.text((x1 + 90, 742), "Figure It The Frick Out.", font=F("Inter-ExtraBoldItalic.otf", 58), fill=(255, 255, 255, 255))
     a3 = fadein(lt, 4.2, 4.8)
     d.text((W / 2, 975), "FITFO™ is a fictional product. This video is satire. Not medical advice. Results may vary. Mostly upward.",
+           font=F("Inter-Italic.otf", 26), fill=(90, 95, 110, int(255 * a3)), anchor="ma")
+    return im
+
+# ===== all-video overrides =====
+def darken(im, k):
+    return Image.fromarray((np.asarray(im).astype(np.float32) * k).astype(np.uint8))
+def grad_left(im, strength, x0=0, x1=1100):
+    a = np.asarray(im).astype(np.float32)
+    ramp = (1 - np.clip((np.arange(W) - x0) / (x1 - x0), 0, 1))[None, :, None] * strength
+    return Image.fromarray((a * (1 - ramp)).astype(np.uint8))
+
+def sc_problem2(t):
+    lt = t - 5.4
+    im = grade(C[5].at(lt, 0.95), "cold")
+    im = grad_left(im, 0.5)
+    ov, d = ov_draw(im)
+    rows = [("MONDAY", "Start the business.", 0.4), ("FRIDAY", "Start the business next Monday.", 2.6)]
+    for i, (day, task, t0) in enumerate(rows):
+        a = fadein(lt, t0, t0 + 0.5) * (1 - fadein(lt, 5.2, 5.6))
+        if a <= 0: continue
+        y = 640 + i * 130
+        d.text((110, y), day, font=F("Inter-Bold.otf", 30), fill=(170, 185, 210, int(255 * a)))
+        f = F("Inter-SemiBold.otf", 54)
+        col = (255, 120, 120) if i == 1 else (255, 255, 255)
+        d.text((112, y + 40), task, font=f, fill=(0, 0, 0, int(140 * a)))
+        d.text((110, y + 38), task, font=f, fill=col + (int(255 * a),))
+        if i == 0 and lt > 1.9:
+            tw = d.textlength(task, font=f)
+            d.line([(110, y + 72), (110 + tw * ease((lt - 1.9) / 0.4), y + 72)], fill=(230, 40, 50, int(255 * a)), width=6)
+    im = comp(im, ov)
+    return super_(im, "Dramatization.", 0.9)
+
+def sc_define(t):
+    lt = t - 10.9
+    im = darken(grade(C[6].at(lt, 0.9, 0.3), "cold"), 0.72)
+    ov, d = ov_draw(im)
+    a1 = fadein(lt, .2, .7); a2 = fadein(lt, .8, 1.3); a3 = fadein(lt, 1.4, 2.0)
+    d.text((W / 2, 300), "Emotional Dysfunction", font=F("Inter-Bold.otf", 92), fill=(255, 255, 255, int(255 * a1)), anchor="ma")
+    d.text((W / 2, 430), "(ED)", font=F("Inter-Regular.otf", 54), fill=(200, 210, 230, int(255 * a2)), anchor="ma")
+    for i, ln in enumerate(["A common condition marked by chronic excuse-making,", "overthinking, and an inability to figure it out."]):
+        d.text((W / 2, 560 + i * 66), ln, font=F("Inter-Regular.otf", 46), fill=(220, 228, 240, int(255 * a3)), anchor="ma")
+    return super_(comp(im, ov), "Dramatization.", 0.9)
+
+def sc_reveal(t):
+    lt = t - 14.6
+    bg = np.asarray(C[7].at(lt, 0.8)).astype(np.float32)
+    bg = bg + (255 - bg) * 0.62
+    im = Image.fromarray(bg.astype(np.uint8))
+    s = 1.05 * (0.92 + 0.08 * ease(lt / 2.6))
+    L = logo(1.0, wipe=ease((lt - 0.35) / 0.5), sub=fadein(lt, 0.7, 1.2))
+    L = L.resize((int(L.width * s), int(L.height * s)), Image.LANCZOS)
+    a = fadein(lt, 0, 0.35); L.putalpha(L.getchannel("A").point(lambda v: int(v * a)))
+    im.paste(L, ((W - L.width) // 2, (H - L.height) // 2), L)
+    return im
+
+def sc_moa(t):
+    lt = t - 22.1
+    im = C[8].at(lt, 0.95)
+    a = np.asarray(im).astype(np.float32)
+    yy = np.arange(H)[:, None, None]
+    band = np.maximum(np.clip((160 - yy) / 120, 0, 1), np.clip((yy - 850) / 110, 0, 1)) * 0.6
+    im = Image.fromarray((a * (1 - band)).astype(np.uint8))
+    ov, d = ov_draw(im)
+    d.text((W / 2, 70), "How FITFO™ is thought to work", font=F("Inter-SemiBold.otf", 54), fill=(255, 255, 255, int(255 * fadein(lt, .1, .6))), anchor="ma")
+    d.text((W / 2, 930), "FITFO™ targets excuse receptors before they reach the decision center.*", font=F("Inter-Regular.otf", 38),
+           fill=(220, 230, 245, int(255 * fadein(lt, 1.2, 1.8))), anchor="ma")
+    return super_(comp(im, ov), "*The exact mechanism of action is unknown. Illustration only.", 0.85, y=H - 55, size=22)
+
+def sc_end(t):
+    lt = t - 52.1
+    im = C[9].at(lt, 0.4)
+    a = np.asarray(im).astype(np.float32)
+    ramp = np.clip((np.arange(H) - 860) / 60, 0, 1)[:, None, None] * 0.94 * fadein(lt, 0.2, 0.8)
+    a = a + (255 - a) * ramp
+    im = Image.fromarray(a.astype(np.uint8)); d = ImageDraw.Draw(im, "RGBA")
+    a1 = fadein(lt, 0.3, 0.8)
+    d.text((110, 922), "Ask your doctor if FITFO™ is right for you.", font=F("Inter-SemiBold.otf", 50), fill=(25, 30, 45, int(255 * a1)))
+    pb = ease((lt - 3.4) / 0.45)
+    if pb > 0:
+        x1 = int(1150 + (W - 1150) * (1 - pb))
+        d.polygon([(x1 + 50, 900), (W + 10, 900), (W + 10, 995), (x1, 995)], fill=RED + (255,))
+        d.text((x1 + 75, 918), "Figure It The Frick Out.", font=F("Inter-ExtraBoldItalic.otf", 50), fill=(255, 255, 255, 255))
+    a3 = fadein(lt, 4.2, 4.8)
+    d.text((W / 2, 1030), "FITFO™ is a fictional product. This video is satire. Not medical advice. Results may vary. Mostly upward.",
            font=F("Inter-Italic.otf", 26), fill=(90, 95, 110, int(255 * a3)), anchor="ma")
     return im
 
