@@ -46,7 +46,7 @@ class Clip:
             self.cur = b; self.idx += 1
         return Image.frombytes("RGB", (W, H), self.cur)
 import os
-C = {i: Clip(f"{CLIPS}/clip{i}.mp4") for i in range(10) if os.path.exists(f"{CLIPS}/clip{i}.mp4")}
+C = {i: Clip(f"{CLIPS}/clip{i}.mp4") for i in range(16) if os.path.exists(f"{CLIPS}/clip{i}.mp4")}
 
 def grade(im, mode):
     if mode == "cold":
@@ -175,7 +175,7 @@ def sc_reveal(t):
 
 def sc_life1(t):
     lt = t - 17.2
-    im = grade(C[1].at(lt, 0.95), "warm")
+    im = grade(C[10].at(lt, 0.95), "warm")
     ca = fadein(t, 17.7, 18.3) * (1 - fadein(t, 21.7, 22.2))
     if ca > 0:
         a = np.asarray(im).astype(np.float32)
@@ -212,19 +212,18 @@ def sc_moa(t):
 
 def sc_face(t):
     lt = t - 27.2
-    im = grade(C[2].at(lt, 0.88), "warm")
+    im = grade(C[11].at(lt, 1.0), "warm")
     im = caption(im, "Stop waiting. Start doing.", fadein(t, 28.2, 28.8) * (1 - fadein(t, 32.2, 32.7)), y=900, size=58)
     return super_(im, "Actor portrayal.")
 
 def sc_side(t):
     lt = t - 32.7
-    if lt < 6.8: im = grade(C[3].at(lt, 0.9), "warm")
-    elif lt < 13.2: im = grade(C[4].at(lt - 6.8, 0.7), "warm")
-    else: im = grade(C[1].at(lt - 13.2, 0.8), "warm")
-    for cut in (6.8, 13.2):  # dissolve at internal cuts
-        if cut - 0.35 < lt < cut:
-            nxt = grade(C[4].at(0, 1), "warm") if cut == 6.8 else grade(C[1].at(0, 1), "warm")
-            im = Image.blend(im, nxt, ease((lt - (cut - 0.35)) / 0.35))
+    segs = [(0.0, 12, 0.92, 0.0), (4.9, 13, 0.92, 0.0), (9.8, 14, 1.0, 0.3), (14.7, 15, 0.95, 0.0)]
+    def shot(k, l): return grade(C[segs[k][1]].at(l - segs[k][0], segs[k][2], segs[k][3]), "warm")
+    k = max(i for i, sg in enumerate(segs) if lt >= sg[0])
+    im = shot(k, lt)
+    if k + 1 < len(segs) and segs[k + 1][0] - 0.35 < lt:
+        im = Image.blend(im, shot(k + 1, segs[k + 1][0]), ease((lt - (segs[k + 1][0] - 0.35)) / 0.35))
     im = isi(im, min(1, max(0, (lt - 0.5) / 18.5)), fadein(lt, 0, 0.5))
     return super_(im, "Actor portrayal.", 1.0, y=H - ISI_H - 50)
 
@@ -246,7 +245,7 @@ def sc_end(t):
     d = ImageDraw.Draw(im, "RGBA"); a1 = fadein(lt, 0.3, 0.8); rc = RX + (W - RX) / 2
     d.text((rc, 520), "Ask your doctor if FITFO™", font=F("Inter-SemiBold.otf", 52), fill=(25, 30, 45, int(255 * a1)), anchor="ma")
     d.text((rc, 586), "is right for you.", font=F("Inter-SemiBold.otf", 52), fill=(25, 30, 45, int(255 * a1)), anchor="ma")
-    pb = ease((lt - 3.4) / 0.45)
+    pb = ease((lt - 3.8) / 0.45)
     if pb > 0:
         x1 = int(RX - 40 + (W - RX + 40) * (1 - pb))
         d.polygon([(x1 + 60, 720), (W + 10, 720), (W + 10, 830), (x1, 830)], fill=RED + (255,))
@@ -330,7 +329,7 @@ def sc_end(t):
     im = Image.fromarray(a.astype(np.uint8)); d = ImageDraw.Draw(im, "RGBA")
     a1 = fadein(lt, 0.3, 0.8)
     d.text((110, 922), "Ask your doctor if FITFO™ is right for you.", font=F("Inter-SemiBold.otf", 50), fill=(25, 30, 45, int(255 * a1)))
-    pb = ease((lt - 3.4) / 0.45)
+    pb = ease((lt - 3.8) / 0.45)
     if pb > 0:
         x1 = int(1150 + (W - 1150) * (1 - pb))
         d.polygon([(x1 + 50, 900), (W + 10, 900), (W + 10, 995), (x1, 995)], fill=RED + (255,))
