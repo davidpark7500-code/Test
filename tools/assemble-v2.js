@@ -1,5 +1,5 @@
 // Assembles CONTINUE? v2: cuts the AI clips per the EDL in continue/v2/film.html, re-pixelates them
-// (384x216 -> 1920x1080 nearest-neighbour), overlays the game-UI layer, and muxes the audio mix.
+// (clips are used at native 1080p; the game-UI layer is drawn at 384x216 and scaled nearest-neighbour), overlays the game-UI layer, and muxes the audio mix.
 // Shots without a rendered clip yet fall back to their start image (slow push-in), so rough cuts work.
 // Usage: node tools/assemble-v2.js <out.mp4> [--from S --to E]
 const { chromium } = require('playwright'); const { spawn, spawnSync } = require('child_process');
@@ -28,7 +28,7 @@ srv.listen(0, async () => {
     if (s.id === 'BLACK') ff(['-f', 'lavfi', '-i', `color=black:s=1920x1080:r=${FPS}`, ...enc]);
     else {
       const clip = find('clips', s.id, '.mp4');
-      if (clip) { const k = Math.max(1, s.d / (dur(clip) - 0.05)); ff(['-i', clip, '-vf', `setpts=PTS*${k.toFixed(4)},fps=${FPS},scale=1920:1080,${PIX}${grade},tpad=stop_mode=clone:stop_duration=${s.d}`, ...enc]); }
+      if (clip) { const k = Math.max(1, s.d / (dur(clip) - 0.05)); ff(['-i', clip, '-vf', `setpts=PTS*${k.toFixed(4)},fps=${FPS},scale=1920:1080:flags=lanczos${grade},tpad=stop_mode=clone:stop_duration=${s.d}`, ...enc]); }
       else { missing.push(s.id); const img = find('plates', s.id, '.png'); ff(['-loop', '1', '-i', img, '-vf', `scale=2400:-2,zoompan=z='1+0.08*on/${N}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${N}:s=1920x1080:fps=${FPS},${PIX}${grade}`, ...enc]); }
     }
     list.push(`file '${seg}'`);
