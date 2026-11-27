@@ -33,8 +33,8 @@ function box(x,y,w,h,fill,border){L.fillStyle=fill;L.fillRect(x,y,w,h);if(border
 const fmt=n=>{if(n>0&&n<1)return n.toFixed(2);return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')};
 const kf=(t,k)=>{if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++){const a=k[i],b=k[i+1];if(t<=b[0])return lerp(a[1],b[1],clamp((t-a[0])/(b[0]-a[0])))}return k[k.length-1][1]};
 const NAMECOL={YOU:'#4fc3ff',DAD:'#9be07a',MAYA:'#ff9fd0',JUNE:'#ffd23f'};
-const DLG=[[23.4,28.1,'YOU',"I'LL MAKE YOU PROUD, DAD.",0,'','',0],[28.4,34.0,'DAD','KIDDO... YOU ALREADY DO.',0,'','',0],
- [88.4,93.0,'MAYA',"...HE SAID HE'D COME.",0,'','',0],[144.6,149.6,'MAYA','DADDY? ARE WE GOING TO BE OK?',0,'','',0],[214.4,220.0,'YOU','KIDDO... YOU ALREADY DO.',0,'','',0]];
+const DLG=[[23.2,28.2,'YOU',"I'LL MAKE YOU PROUD, DAD.",0,'','',0],[28.4,34.1,'DAD','KIDDO... YOU ALREADY DO.',0,'','',0],
+ [87.6,93.1,'MAYA',"...HE SAID HE'D COME.",0,'','',0],[144.2,150.6,'MAYA','DADDY? ARE WE GOING TO BE OK?',0,'','',0],[213.8,220.0,'YOU','KIDDO... YOU ALREADY DO.',0,'','',0]];
 const ACH=[[20.5,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f'],[37,'NEW QUEST','BUILD A COMPANY','#ffd23f'],[67.5,'ACHIEVEMENT UNLOCKED','FIRST 1,000 CUSTOMERS','#ffd23f'],
  [73,'ACHIEVEMENT UNLOCKED','VALUATION: $40,000,000','#ffd23f'],[85,'ACHIEVEMENT MISSED',"MAYA'S FIRST RECITAL",'#9a9a9a'],[178.5,'ACHIEVEMENT UNLOCKED','SHOWED UP','#ffd23f'],[212.5,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f']];
 const STAGES=[[8.3,1,'1994 - THE LEMONADE STAND'],[34.5,2,'2014 - THE GARAGE'],[71.5,3,'2019 - GO BIG'],[176.3,4,'2023 - SECOND CHANCES'],[202.3,5,'2052 - THE LEMONADE STAND']];
@@ -47,7 +47,7 @@ const yearAt=t=>{let y=1994;for(const [a,v] of YEARS)if(t>=a)y=v;return y};
 const NOHUD=s=>['01','BLACK','20','21','22','35'].includes(s.id);
 const NODES=[["I'M EXCITED",9],['UGH! THIS IS HARD',5],["IT'S WORKING!",10],['GIVE UP THE GOOD FOR THE GREAT',13],["I THINK I'M GOING BANKRUPT",2],["I'M GOOD.",14],['I WAS WRONG. I SUCK!',10],['WAIT A SECOND. MY LIFE IS GREAT.',18]];
 
-function dialog(t,t0,t1,who,text,vd){if(t<t0||t>t1)return;const n=Math.floor((t-t0)*12),lines=wrap(text,56),a=Math.min(1,(t-t0)*6,(t1-t)*6);L.save();L.globalAlpha=a;
+function dialog(t,t0,t1,who,text,vd){if(t<t0||t>t1)return;const n=Math.floor((t-t0)*20),lines=wrap(text,56),a=Math.min(1,(t-t0)*6,(t1-t)*6);L.save();L.globalAlpha=a;
   box(10,168,364,40,'rgba(8,8,16,.84)','#e8e0d0');box(14,160,tw(who)+8,11,'rgba(8,8,16,.95)',NAMECOL[who]);txt(who,18,162,NAMECOL[who],1,'l',false);
   let k=0;lines.forEach((l,i)=>{txt(l.slice(0,Math.max(0,n-k)),20,178+i*11,'#fff8e8');k+=l.length+1});L.restore()}
 function overlay(t){
@@ -75,7 +75,7 @@ function overlay(t){
   if(t>93.2&&t<104.2){const msg='BREAKING: LEMON.IO COLLAPSES - 200 LAID OFF - FOUNDER SILENT - ';box(0,154,LW,12,'#c0392b');L.save();L.beginPath();L.rect(0,154,LW,12);L.clip();const off=Math.round((t-93.2)*40)%tw(msg+' ');txt(msg+msg+msg,LW-off-40,157,'#fff',1,'l',false);L.restore()}
   if(s.id==='BLACK'&&t<108.2){L.fillStyle='#000';L.fillRect(0,0,LW,LH);if(lt>.25)txt('GAME OVER',LW/2,78,'#ff3b3b',4,'c');if(lt>2.3){L.save();L.globalAlpha=Math.min(1,(lt-2.3)*2);txt('1 NEW VOICEMAIL - DAD',LW/2,132,'#fff',1,'c');L.restore()}}
   if(t>108.2&&t<132.2){box(4,4,162,12,'rgba(8,8,16,.85)','#9be07a');txt('VOICEMAIL - DAD - 11:52 PM',8,7,'#9be07a',1,'l',false);
-    let cur=-1;VM.forEach(([a],i)=>{if(t>=VM_AT+a)cur=i});if(cur>=0){const [a,line]=VM[cur];const n=Math.floor((t-VM_AT-a)*22);box(20,184,344,16,'rgba(8,8,16,.72)');txt(line.slice(0,n),LW/2,189,'#ffffff',1,'c',false)}}
+    let cur=-1;VM.forEach(([a],i)=>{if(t>=VM_AT+a)cur=i});if(cur>=0){const [a,line]=VM[cur];const n=Math.floor((t-VM_AT-a)*30);box(20,172,344,28,'rgba(8,8,16,.72)');if(cur>0)txt(VM[cur-1][1],LW/2,177,'#9a9a9a',1,'c',false);txt(line.slice(0,n),LW/2,189,'#ffffff',1,'c',false)}}
   if(s.id==='BLACK'&&t>132&&t<138){L.fillStyle='#000';L.fillRect(0,0,LW,LH);const a=sm(.6,2,lt)*(1-sm(4.6,5.4,lt));L.save();L.globalAlpha=a;txt('I NEVER CALLED BACK.',LW/2,100,'#fff',2,'c',false);L.restore()}
   if(t>151.3&&t<156.6){const a=sm(151.3,151.9,t)*(1-sm(156,156.6,t));L.save();L.globalAlpha=a;box(40,180,304,18,'rgba(8,8,16,.75)','#9be07a');txt('DAD: "ALL IT TAKES IS ONE TO PLAY AGAIN."',LW/2,186,'#d8f5c8',1,'c',false);L.restore()}
   if(t>160.5&&t<CONT){const cd=9-Math.floor(t-160.5);L.save();L.globalAlpha=Math.min(1,(t-160.5)*3);box(102,22,180,50,'rgba(8,8,16,.82)','#ffd23f');txt('INSERT COIN',LW/2,28,'#ffd23f',2,'c',false);txt('TO CONTINUE',LW/2,46,'#fff',1,'c',false);txt(String(Math.max(1,cd)),LW/2,55,cd<=4?'#ff5a5a':'#fff',2,'c',false);L.restore()}
