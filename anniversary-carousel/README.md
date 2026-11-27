@@ -4,4 +4,6 @@
 
     python3 build.py photo_2015.jpg photo_2026.jpg output
 
-`output/` is git-ignored so family photos never get pushed. Fonts are Playfair Display and Inter (SIL OFL).
+`build_road.py` renders the seamless "car drives across the slides" version into `output_road/`.
+
+`output/` and `output_road/` are git-ignored so family photos never get pushed. Fonts are Playfair Display and Inter (SIL OFL).
