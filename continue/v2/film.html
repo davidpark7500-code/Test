@@ -53,7 +53,7 @@ function dialog(t,t0,t1,who,text,vd){if(t<t0||t>t1)return;const n=Math.floor((t-
 function overlay(t){
   L.clearRect(0,0,LW,LH);const s=shotAt(t),lt=t-s.t0;
   // title
-  if(t<8){const a=sm(1.2,2.4,t)*(1-sm(7.2,8,t));L.save();L.globalAlpha=a;txt('CONTINUE?',LW/2,62,'#ffd23f',4,'c');txt('AN 8-BIT LIFE',LW/2,100,'#ffffff',1,'c');L.restore();
+  if(t<8){const a=sm(1.2,2.4,t)*(1-sm(7.2,8,t));L.save();L.globalAlpha=a;txt('CONTINUE?',LW/2,62,'#ffd23f',4,'c');txt('AN 8-BIT STORY',LW/2,100,'#ffffff',1,'c');L.restore();
     if(t>3.6&&t<7.2&&Math.floor(t*2.5)%2===0)txt('PRESS START',LW/2,150,'#ffffff',1,'c')}
   // HUD
   if(!NOHUD(s)&&t>8.2){box(0,0,LW,11,'rgba(0,0,0,.5)');txt('P1',3,2,'#ffd23f');const h=Math.round(kf(t,MOR)*10)/2;for(let i=0;i<5;i++){const f=h-i;txt('@',20+i*7,2,f>=1?'#ff3b5c':f>=.5?'#ff9aa8':'#555',1,'l',false)}
