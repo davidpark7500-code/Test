@@ -42,3 +42,9 @@ The structure follows two charts: *A Day in the Life of an Entrepreneur* (the ov
 | 2020 | Grave in the rain. Maya under a yellow umbrella. The quarter. **INSERT COIN TO CONTINUE.** |
 | 2023–2052 | Second chance: front row at the recital, home by 6, *Player 3*. Old man buys lemonade from his granddaughter and says Dad's line. |
 | End | The whole life as one chart. Final score: *Calls returned: every one.* |
+
+## CONTINUE? v2 (current): every shot is AI video
+
+- **`continue/v2/continue-v2.mp4`**: the film. 1080p, 4:00, 34 AI video clips in a chunky pixel-art style, an ElevenLabs score, and Dad's voicemail voiced with ElevenLabs.
+- Pipeline: character sheets (`continue/art/characters/`) → start images (`continue/v2/plates/`) → image-to-video clips (`continue/v2/clips/`) → `continue/v2/film.html` (edit list, game-text layer, audio mix) → `node tools/assemble-v2.js out.mp4`.
+- Higgsfield job ids for every image and clip are in `continue/v2/jobs.json`.
