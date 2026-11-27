@@ -20,3 +20,25 @@ An animated, high-energy promo video about David Park, built entirely in JavaScr
 | 43–49s | And he didn't stop: Sponsor Onboarding, Attest, Back Forty, Claude in Chrome… |
 | 49–54s | DREAM IT. PROMPT IT. BUILD IT. SHIP IT. REPEAT. |
 | 54–60s | Finale: *Build the future. One prompt at a time.* #KeepShipping |
+
+---
+
+# CONTINUE? : an 8-bit life (4-minute film)
+
+A voxel 3D, 8-bit short film about the beginning, middle and end of an entrepreneur's life, built entirely in code: three.js rendered at 320×180 with an ordered-dither palette shader, a hand-drawn 5×7 bitmap font, and a synthesized chiptune score (Web Audio).
+
+The structure follows two charts: *A Day in the Life of an Entrepreneur* (the overworld map is literally that jagged line) and *The Emotional Cycle of Change* (uninformed optimism → valley of despair → informed optimism).
+
+- **`continue/index.html`**: open in a browser and press **Play** (or Space). Has a seek bar and a **Record .webm** button.
+- **`continue/continue.mp4`**: pre-rendered 1080p/30fps with audio.
+- **`tools/export-continue.js`**: re-renders the MP4: `node tools/export-continue.js /usr/bin/ffmpeg continue/continue.mp4`
+
+| Stage | Beat |
+|---|---|
+| 1994 | Kid's lemonade stand. Dad is the first customer: *"I'll make you proud." / "Kiddo... you already do."* |
+| 2014–2016 | Quits job, garage, 47 rejections, *Player 2 has joined* (Maya), *"It's working!"* |
+| 2019 | $40M tower. Declines Dad's call. Misses Maya's first recital: the empty RESERVED seat. |
+| 2020 | Collapse → GAME OVER → Dad's last voicemail → *"I never called back."* |
+| 2020 | Grave in the rain. Maya under a yellow umbrella. The quarter. **INSERT COIN TO CONTINUE.** |
+| 2023–2052 | Second chance: front row at the recital, home by 6, *Player 3*. Old man buys lemonade from his granddaughter and says Dad's line. |
+| End | The whole life as one chart. Final score: *Calls returned: every one.* |
