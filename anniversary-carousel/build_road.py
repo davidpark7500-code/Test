@@ -13,7 +13,7 @@ from build import (W, H, FPS, CREAM, INK, GOLD, font, prog, ease, ease_io, clamp
 N = 5
 GW = W * N
 LOOP = 4.5            # seconds per slide video (Instagram loops it)
-ENTER, EXIT = 0.5, 3.6  # car crosses the slide between these times
+ENTER, EXIT = 0.25, 4.15  # car is on screen for nearly the whole loop
 CORAL = (226, 88, 98)
 ROAD = (226, 212, 190)
 TAN = (166, 120, 52)
