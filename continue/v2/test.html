@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CONTINUE? v2 test scenes</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;font:13px monospace;color:#ccc}
+#c{width:min(100vw,calc((100vh - 48px)*16/9));height:auto;image-rendering:pixelated;display:block;background:#000}
+#bar{display:flex;gap:8px;align-items:center;height:42px;width:min(100vw,calc((100vh - 48px)*16/9));padding:0 6px;box-sizing:border-box}
+button{background:#111;color:#fff;border:2px solid #fff;font:12px monospace;padding:4px 10px;cursor:pointer}
+#seek{flex:1;accent-color:#ffd23f}
+</style></head><body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="bar"><button id="play">LOADING…</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span></div>
+<script src="font.js"></script>
+<script src="../audio/voicemail.js"></script>
+<script>
+'use strict';
+/* v2 pipeline: generated pixel-art plates, animated in code.
+   Everything is drawn into a 384x216 buffer (5x pixels) and scaled up nearest-neighbour. */
+const OW=1920,OH=1080,LW=384,LH=216;
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)),lerp=(a,b,k)=>a+(b-a)*k,ease=k=>{k=clamp(k);return k*k*(3-2*k)},sm=(a,b,x)=>ease((x-a)/(b-a));
+function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+const out=document.getElementById('c'),ctx=out.getContext('2d');
+const low=document.createElement('canvas');low.width=LW;low.height=LH;const L=low.getContext('2d');
+const IMG={};
+function load(k,src){return new Promise(r=>{const i=new Image();i.onload=()=>{IMG[k]=i;r()};i.src=src})}
+
+/* camera: centre (x,y) in normalised image coords, zoom 1 = full frame */
+let CAM={x:.5,y:.5,z:1};
+function plate(img,cam,filter){const iw=img.width,ih=img.height,sw=iw/cam.z,sh=ih/cam.z;let sx=cam.x*iw-sw/2,sy=cam.y*ih-sh/2;sx=clamp(sx,0,iw-sw);sy=clamp(sy,0,ih-sh);
+  CAM={sx,sy,sw,sh,iw,ih};L.save();L.filter=filter||'none';L.imageSmoothingEnabled=true;L.imageSmoothingQuality='high';L.drawImage(img,sx,sy,sw,sh,0,0,LW,LH);L.restore()}
+const P=(nx,ny)=>[(nx*CAM.iw-CAM.sx)/CAM.sw*LW,(ny*CAM.ih-CAM.sy)/CAM.sh*LH];
+function camAt(keys,t){for(let i=0;i<keys.length-1;i++){const a=keys[i],b=keys[i+1];if(t<=b.t){const k=ease((t-a.t)/(b.t-a.t));return{x:lerp(a.x,b.x,k),y:lerp(a.y,b.y,k),z:lerp(a.z,b.z,k)}}}return keys[keys.length-1]}
+
+/* ---- effects (all in low-res pixels) ---- */
+function glow(nx,ny,r,col,a){const [x,y]=P(nx,ny);const g=L.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col.replace('A',a));g.addColorStop(1,col.replace('A',0));L.save();L.globalCompositeOperation='lighter';L.fillStyle=g;L.fillRect(x-r,y-r,r*2,r*2);L.restore()}
+function sparkle(nx,ny,s,a){const [x,y]=P(nx,ny);const X=Math.round(x),Y=Math.round(y),n=Math.round(s);L.save();L.globalAlpha=a;L.fillStyle='#fffbe0';L.fillRect(X-n,Y,n*2+1,1);L.fillRect(X,Y-n,1,n*2+1);L.fillStyle='#ffffff';L.fillRect(X-1,Y-1,3,3);L.restore()}
+const RAIN=(()=>{const r=rng(3),a=[];for(let i=0;i<260;i++)a.push([r()*LW*1.2,r()*LH,3+r()*4,.5+r()*.5]);return a})();
+function rain(t,amt){if(amt<=0)return;L.save();L.fillStyle='#c9d8f0';const n=Math.floor(RAIN.length*amt);for(let i=0;i<n;i++){const [x0,y0,len,sp]=RAIN[i];const y=((y0+t*170*sp)%(LH+10))-10;const x=Math.round(((x0-t*30*sp)%(LW*1.2)+LW*1.2)%(LW*1.2))-20;L.globalAlpha=.35+.35*sp;L.fillRect(x,Math.round(y),1,Math.round(len))}L.restore()}
+const MOTES=(()=>{const r=rng(9),a=[];for(let i=0;i<40;i++)a.push([r(),r(),r()*6.28,.3+r()*.7]);return a})();
+function motes(t,x0,x1,y0,y1,a){L.save();L.fillStyle='#fff3c0';for(const [u,v,ph,s] of MOTES){const x=lerp(x0,x1,u)*LW+Math.sin(t*.6*s+ph)*6,y=lerp(y0,y1,(v+t*.02*s)%1)*LH;L.globalAlpha=a*(.4+.6*Math.abs(Math.sin(t*1.3*s+ph)));L.fillRect(Math.round(x),Math.round(y),1,1)}L.restore()}
+function vignette(a){const g=L.createRadialGradient(LW/2,LH/2,LH*.3,LW/2,LH/2,LH*.95);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(0,0,0,${a})`);L.fillStyle=g;L.fillRect(0,0,LW,LH)}
+
+/* ---- UI ---- */
+function txt(s,x,y,col,sc=1,al='l',sh=true){if(al==='c')x=Math.round(x-tw(s,sc)/2);else if(al==='r')x=Math.round(x-tw(s,sc));if(sh)drawText(L,s,x+sc,y+sc,'rgba(0,0,0,.85)',sc);drawText(L,s,x,y,col,sc)}
+function box(x,y,w,h,fill,border){L.fillStyle=fill;L.fillRect(x,y,w,h);if(border){L.fillStyle=border;L.fillRect(x,y,w,1);L.fillRect(x,y+h-1,w,1);L.fillRect(x,y,1,h);L.fillRect(x+w-1,y,1,h)}}
+const NAMECOL={YOU:'#4fc3ff',DAD:'#9be07a',MAYA:'#ff9fd0'};
+function dialog(t,t0,t1,who,text){if(t<t0||t>t1)return;const n=Math.floor((t-t0)*28);const lines=wrap(text,56);const a=Math.min(1,(t-t0)*6,(t1-t)*6);L.save();L.globalAlpha=a;
+  box(10,166,364,42,'rgba(8,8,16,.86)','#e8e0d0');box(14,158,tw(who)+8,11,'rgba(8,8,16,.95)',NAMECOL[who]);txt(who,18,160,NAMECOL[who],1,'l',false);
+  let c=0;lines.forEach((l,i)=>{txt(l.slice(0,Math.max(0,n-c)),20,176+i*11,'#fff8e8');c+=l.length+1});L.restore()}
+function ach(t,t0,head,text,col){const t1=t0+3.4;if(t<t0||t>t1)return;const sl=Math.min(ease((t-t0)/.25),ease((t1-t)/.25));const w=Math.max(tw(head),tw(text))+22,x=Math.round(LW-(w+6)*sl);
+  box(x,10,w,22,'rgba(8,8,16,.9)',col);txt('*',x+5,17,col,1,'l',false);txt(head,x+16,13,col,1,'l',false);txt(text,x+16,22,'#fff',1,'l',false)}
+function stage(t,t0,n,sub){const t1=t0+2.8;if(t<t0||t>t1)return;const a=Math.min(1,(t-t0)*4,(t1-t)*3);L.save();L.globalAlpha=a;const w=Math.max(tw(sub)+20,130);box(Math.round(LW/2-w/2),20,w,36,'rgba(8,8,16,.82)','#ffd23f');txt('STAGE '+n,LW/2,25,'#ffd23f',2,'c');txt(sub,LW/2,44,'#fff',1,'c');L.restore()}
+
+/* ---- the three scenes ---- */
+const S1=0,S2=11,S3=21,TOTAL=35;
+const GRAVE_INSERT=S3+9.6;
+function render(t){
+  t=clamp(t,0,TOTAL-1e-4);L.clearRect(0,0,LW,LH);let fade=0;
+  if(t<S2){const lt=t-S1;
+    const cam=camAt([{t:0,x:.5,y:.5,z:1},{t:6,x:.5,y:.6,z:1.35},{t:11,x:.48,y:.62,z:1.75}],lt);
+    plate(IMG.lemon,cam,`saturate(1.08) brightness(${1+.03*Math.sin(lt*.9)})`);
+    glow(.86,.08,90,'rgba(255,220,140,A)',.22+.06*Math.sin(lt*1.4));motes(lt,.4,1,0,.7,.7);
+    const c=.5+.5*Math.sin(lt*5);sparkle(.479,.596,2+2*c,.6+.4*c);glow(.479,.596,10,'rgba(255,230,120,A)',.35*c);
+    vignette(.28);
+    stage(lt,.3,1,'1994 - THE LEMONADE STAND');
+    dialog(lt,2.2,5.4,'DAD',"HERE'S A QUARTER. MY FIRST INVESTMENT.");
+    ach(lt,3,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f');
+    dialog(lt,5.7,8.2,'YOU',"I'LL MAKE YOU PROUD, DAD. I PROMISE!");
+    dialog(lt,8.4,11,'DAD','KIDDO... YOU ALREADY DO.');
+    fade=Math.max(1-lt/.6,sm(10.4,11,lt));
+  }else if(t<S3){const lt=t-S2;
+    const cam=camAt([{t:0,x:.5,y:.5,z:1},{t:10,x:.56,y:.47,z:1.9}],lt);
+    plate(IMG.recital,cam,`saturate(${lerp(.95,.7,lt/10)}) brightness(${lerp(1,.88,lt/10)})`);
+    glow(.5,.02,110,'rgba(255,214,150,A)',.10+.04*Math.sin(lt*2.1));motes(lt,.35,.65,0,.6,.5);
+    vignette(lerp(.35,.6,lt/10));
+    box(8,10,62,12,'rgba(8,8,16,.8)','#888');txt('7:04 PM',39,13,'#fff',1,'c',false);
+    dialog(lt,4.6,8.6,'MAYA',"...HE SAID HE'D COME.");
+    ach(lt,6.4,'ACHIEVEMENT MISSED',"MAYA'S FIRST RECITAL",'#9a9a9a');
+    fade=Math.max(1-lt/.6,sm(9.2,10,lt));
+  }else{const lt=t-S3,iT=GRAVE_INSERT-S3;const c=sm(iT,iT+1.8,lt);
+    const cam=lt<iT?camAt([{t:0,x:.5,y:.5,z:1},{t:iT,x:.42,y:.6,z:2.1}],lt):camAt([{t:0,x:.42,y:.6,z:2.1},{t:3.5,x:.5,y:.5,z:1.05}],lt-iT);
+    plate(IMG.grave,cam,`saturate(${lerp(.15,1.1,c)}) brightness(${lerp(.72,1.05,c)}) contrast(${lerp(1.1,1,c)})`);
+    glow(.79,.15,lerp(40,140,c),'rgba(255,200,130,A)',lerp(.04,.35,c));
+    glow(.61,.88,22,'rgba(255,190,90,A)',(.25+.12*Math.sin(lt*13)+.06*Math.sin(lt*31))*lerp(.6,1,c));
+    const pulse=.5+.5*Math.sin(lt*4);if(lt<iT+.2){glow(.43,.612,14,'rgba(255,220,110,A)',.25+.35*pulse);sparkle(.43,.612,2+3*pulse,.5+.5*pulse)}
+    rain(lt,1-c*.95);if(c>0)motes(lt,.5,1,0,.8,c);vignette(lerp(.6,.3,c));
+    if(lt>2&&lt<6.2){const a=sm(2,2.6,lt)*(1-sm(5.6,6.2,lt));L.save();L.globalAlpha=a;box(40,176,304,18,'rgba(8,8,16,.75)','#9be07a');txt('DAD: "ALL IT TAKES IS ONE TO PLAY AGAIN."',LW/2,182,'#d8f5c8',1,'c',false);L.restore()}
+    if(lt>4.6&&lt<iT){const cd=9-Math.floor(lt-4.6);L.save();L.globalAlpha=Math.min(1,(lt-4.6)*3);box(102,18,180,50,'rgba(8,8,16,.82)','#ffd23f');txt('INSERT COIN',LW/2,24,'#ffd23f',2,'c',false);txt('TO CONTINUE',LW/2,42,'#fff',1,'c',false);txt(String(cd),LW/2,51,cd<=5?'#ff5a5a':'#fff',2,'c',false);L.restore()}
+    if(lt>=iT&&lt<iT+.2){L.fillStyle='rgba(255,255,255,.85)';L.fillRect(0,0,LW,LH)}
+    if(lt>=iT+.25&&lt<iT+3.4){const f=Math.floor(lt*8)%2;txt('CONTINUE!',LW/2,30,f?'#ffd23f':'#ffffff',3,'c');txt('PLAYER 1 + PLAYER 2',LW/2,58,'#ff9fd0',1,'c')}
+    fade=Math.max(1-lt/1.2,sm(TOTAL-S3-1,TOTAL-S3,lt));
+  }
+  if(fade>0){L.fillStyle=`rgba(0,0,0,${clamp(fade)})`;L.fillRect(0,0,LW,LH)}
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(low,0,0,OW,OH);
+}
+window.__TOTAL=TOTAL;window.__render=t=>{window.__manual=true;render(t)};
+
+/* ---- audio: rain bed, SFX and Dad's ElevenLabs voice (music comes later) ---- */
+let AUDIO=null;
+async function renderAudio(){if(AUDIO)return AUDIO;const ac=new OfflineAudioContext(2,44100*TOTAL,44100);const m=ac.createGain();m.gain.value=.9;m.connect(ac.destination);
+  const nb=ac.createBuffer(1,88200,44100);{const d=nb.getChannelData(0),r=rng(1);for(let i=0;i<d.length;i++)d[i]=r()*2-1}
+  const tone=(t,d,f,type,v,slide)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.005);g.gain.exponentialRampToValueAtTime(.0005,t+d);o.connect(g).connect(m);o.start(t);o.stop(t+d+.02)};
+  {const s=ac.createBufferSource();s.buffer=nb;s.loop=true;const f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=1500;f.Q.value=.5;const g=ac.createGain();g.gain.setValueAtTime(0,0);g.gain.setValueAtTime(0,S3);g.gain.linearRampToValueAtTime(.1,S3+1);g.gain.setValueAtTime(.1,GRAVE_INSERT);g.gain.linearRampToValueAtTime(.005,GRAVE_INSERT+2);s.connect(f).connect(g).connect(m);s.start(0)}
+  {const s=ac.createBufferSource();s.buffer=nb;s.loop=true;const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=900;const g=ac.createGain();g.gain.setValueAtTime(0,0);g.gain.linearRampToValueAtTime(.025,1);g.gain.setValueAtTime(.025,S2-.6);g.gain.linearRampToValueAtTime(0,S2);s.connect(f).connect(g).connect(m);s.start(0)}
+  const coin=t=>{tone(t,.08,987.8,'square',.06);tone(t+.08,.45,1318.5,'square',.06)};
+  coin(S1+3);[1047,1319,1568,2093].forEach((f,i)=>tone(S1+3.1+i*.06,.1,f,'square',.03));
+  [659,523,392].forEach((f,i)=>tone(S2+6.4+i*.18,.22,f,'triangle',.1));
+  for(let i=0;i<5;i++){const t=S3+4.6+i;tone(t,.06,i>=4?1200:900,'square',.045);tone(t,.12,140,'triangle',.4,45);tone(t+.22,.12,140,'triangle',.3,45)}
+  coin(GRAVE_INSERT);[523,659,784,1047,1319,1568].forEach((f,i)=>tone(GRAVE_INSERT+.25+i*.06,.12,f,'square',.035));for(const f of[131,262,330,392,523])tone(GRAVE_INSERT,2.2,f,'triangle',.05);
+  if(window.VM_B64){const b=Uint8Array.from(atob(window.VM_B64),c=>c.charCodeAt(0));const v=await ac.decodeAudioData(b.buffer);const s=ac.createBufferSource();s.buffer=v;
+    const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=300;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3400;const g=ac.createGain();g.gain.value=1.4;const d=ac.createDelay(1);d.delayTime.value=.3;const fb=ac.createGain();fb.gain.value=.4;
+    s.connect(hp).connect(lp).connect(g).connect(m);g.connect(d);d.connect(fb).connect(d);d.connect(m);s.start(S3+2.1,12.6,2.2)}
+  AUDIO=await ac.startRendering();return AUDIO}
+function wavB64(buf){const nc=buf.numberOfChannels,len=buf.length,sr=buf.sampleRate,dv=new DataView(new ArrayBuffer(44+len*nc*2));let p=0;const ws=s=>{for(const c of s)dv.setUint8(p++,c.charCodeAt(0))};
+  ws('RIFF');dv.setUint32(p,36+len*nc*2,true);p+=4;ws('WAVEfmt ');dv.setUint32(p,16,true);p+=4;dv.setUint16(p,1,true);p+=2;dv.setUint16(p,nc,true);p+=2;dv.setUint32(p,sr,true);p+=4;dv.setUint32(p,sr*nc*2,true);p+=4;dv.setUint16(p,nc*2,true);p+=2;dv.setUint16(p,16,true);p+=2;ws('data');dv.setUint32(p,len*nc*2,true);p+=4;
+  const ch=[];for(let c=0;c<nc;c++)ch.push(buf.getChannelData(c));for(let i=0;i<len;i++)for(let c=0;c<nc;c++){dv.setInt16(p,Math.max(-1,Math.min(1,ch[c][i]))*32767,true);p+=2}
+  const by=new Uint8Array(dv.buffer);let s='';for(let i=0;i<by.length;i+=32768)s+=String.fromCharCode.apply(null,by.subarray(i,i+32768));return btoa(s)}
+window.__renderAudio=async()=>wavB64(await renderAudio());
+
+/* ---- player ---- */
+const playB=document.getElementById('play'),seek=document.getElementById('seek'),tm=document.getElementById('tm');let actx,src,startAt=0,playing=false,cur=0;
+async function play(from){actx=actx||new AudioContext();await actx.resume();const b=await renderAudio();if(src)try{src.stop()}catch(e){}src=actx.createBufferSource();src.buffer=b;src.connect(actx.destination);src.start(0,from);startAt=actx.currentTime-from;playing=true;playB.textContent='❚❚ PAUSE'}
+playB.onclick=()=>{if(playing){cur=actx.currentTime-startAt;src.stop();playing=false;playB.textContent='▶ PLAY'}else play(cur>=TOTAL-.2?0:cur)};
+seek.oninput=()=>{cur=seek.value*TOTAL;if(playing)play(cur)};
+function loop(){if(!window.__manual){if(playing){cur=actx.currentTime-startAt;if(cur>=TOTAL){cur=TOTAL;playing=false;playB.textContent='▶ PLAY'}}render(cur);seek.value=cur/TOTAL;tm.textContent=cur.toFixed(1)+'s'}requestAnimationFrame(loop)}
+Promise.all([load('lemon','scenes/01-lemonade.png'),load('recital','scenes/02-recital.png'),load('grave','scenes/03-grave.png')]).then(()=>{window.__ready=true;playB.textContent='▶ PLAY';requestAnimationFrame(loop)});
+</script></body></html>
