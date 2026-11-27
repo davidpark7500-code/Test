@@ -13,6 +13,7 @@ button{background:#111;color:#fff;border:2px solid #fff;font:12px monospace;padd
 <canvas id="c" width="1920" height="1080"></canvas>
 <div id="bar"><button id="play">LOADING…</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><button id="rec">● REC .WEBM</button><button id="fs">FULL</button></div>
 <script src="three.min.js"></script>
+<script src="audio/voicemail.js"></script>
 <script>
 'use strict';
 /* =====================================================================
@@ -397,8 +398,10 @@ say(S.ending,8.6,3.4,'JUNE',"SOMEDAY I'LL BUILD A REAL COMPANY, GRANDPA!",VOX.ju
 say(S.ending,12.2,3,'JUNE',"I'LL MAKE YOU PROUD. I PROMISE.",VOX.june);
 say(S.ending,15.4,4.4,'YOU','KIDDO... YOU ALREADY DO.',VOX.old);
 
-const VM=[[1.8,"HEY KIDDO. IT'S DAD."],[4.0,'SAW THE NEWS ABOUT THE COMPANY.'],[6.6,"I KNOW YOU'RE BUSY."],[8.4,"YOU DON'T HAVE TO CALL BACK."],
- [10.9,'...YOU STILL GOT THAT QUARTER?'],[13.6,'ALL IT TAKES IS ONE TO PLAY AGAIN.'],[16.4,'WIN OR LOSE, KIDDO...'],[18.4,'YOU ALREADY MAKE ME PROUD.'],[20.8,'LOVE YOU. BYE.']];
+const VM_AT=1.6;
+const VM=[[VM_AT+0,"HEY KIDDO. IT'S DAD."],[VM_AT+3.18,'SAW THE NEWS ABOUT THE COMPANY.'],[VM_AT+5.62,"I KNOW YOU'RE BUSY."],[VM_AT+7.05,"YOU DON'T HAVE TO CALL BACK."],
+ [VM_AT+9.52,'HEY... YOU STILL GOT THAT QUARTER?'],[VM_AT+12.7,'ALL IT TAKES IS ONE TO PLAY AGAIN.'],[VM_AT+15.8,'WIN OR LOSE, KIDDO...'],[VM_AT+17.46,'YOU ALREADY MAKE ME PROUD.'],[VM_AT+20.54,'LOVE YOU. BYE.']];
+const VM_SPEECH=[[0,.78],[1.43,1.94],[3.18,4.61],[5.62,6.6],[7.05,8.08],[9.52,9.75],[10.54,11.64],[12.7,14.66],[15.8,16.89],[17.46,19.32],[20.54,20.92],[21.68,21.97]];
 const SCORE=[['MONEY MADE','$40,000,000'],['MONEY LOST','$40,000,000'],['COMPANIES BUILT','2'],['RECITALS MISSED','1'],['RECITALS ATTENDED','14'],['CALLS RETURNED','EVERY ONE']];
 SCORE.forEach((_,i)=>sfx(S.score,1.5+i*1.1,'row',i));
 
@@ -602,10 +605,10 @@ function drawShotUI(t,sh,lt){
   if(n==='collapse'){const s='BREAKING: LEMON.IO COLLAPSES - 200 LAID OFF - FOUNDER SILENT - ';box(0,166,W,12,'#c0392b');u.save();u.beginPath();u.rect(0,166,W,12);u.clip();const off=Math.round(lt*40)%tw(s+' ');txt(s+s+s,W-off-40,169,'#fff',1,'l',false);u.restore()}
   if(n==='gameover'){u.fillStyle='#000';u.fillRect(0,0,W,H);if(lt>.25)txt('GAME OVER',W/2,70,'#ff3b3b',4,'c');if(lt>2.6){u.globalAlpha=Math.min(1,(lt-2.6)*2);txt('1 NEW VOICEMAIL - DAD',W/2,122,'#ffffff',1,'c');u.globalAlpha=1}}
   if(n==='voicemail'){u.fillStyle='#000';u.fillRect(0,0,W,H);box(16,30,74,124,'#1a1a1a','#777');box(21,38,64,104,'#0b1430');txt('VOICEMAIL',53,44,'#aaa',1,'c',false);txt('DAD',53,58,'#7ed957',2,'c',false);txt('11:52 PM',53,78,'#aaa',1,'c',false);
-    const playing=VM.some(([a,s])=>lt>a&&lt<a+s.length/13+.3);for(let i=0;i<9;i++){const h=playing?2+Math.abs(Math.sin(lt*13+i*1.7)*Math.sin(lt*5+i))*14:2;u.fillStyle='#4fc3ff';u.fillRect(25+i*6,112-h/2,4,Math.max(2,Math.round(h)))}
-    const prog=clamp(lt/22.5);u.fillStyle='#333';u.fillRect(26,130,54,2);u.fillStyle='#fff';u.fillRect(26,130,Math.round(54*prog),2);
-    VM.forEach(([a,s],i)=>{if(lt<a)return;const n2=Math.floor((lt-a)*13);const last=i===VM.length-1||lt<VM[i+1][0];txt(s.slice(0,n2),104,28+i*13,last?'#ffffff':'#8a8a8a',1,'l',false)});
-    if(lt>22.6)txt('- END OF MESSAGE -',W/2+48,152,'#666',1,'c',false)}
+    const playing=VM_SPEECH.some(([a,b])=>lt>VM_AT+a&&lt<VM_AT+b);for(let i=0;i<9;i++){const h=playing?2+Math.abs(Math.sin(lt*13+i*1.7)*Math.sin(lt*5+i))*14:2;u.fillStyle='#4fc3ff';u.fillRect(25+i*6,112-h/2,4,Math.max(2,Math.round(h)))}
+    const prog=clamp((lt-VM_AT)/22);u.fillStyle='#333';u.fillRect(26,130,54,2);u.fillStyle='#fff';u.fillRect(26,130,Math.round(54*prog),2);
+    VM.forEach(([a,s],i)=>{if(lt<a)return;const n2=Math.floor((lt-a)*20);const last=i===VM.length-1||lt<VM[i+1][0];txt(s.slice(0,n2),104,28+i*13,last?'#ffffff':'#8a8a8a',1,'l',false)});
+    if(lt>23.5)txt('- END OF MESSAGE -',W/2+48,152,'#666',1,'c',false)}
   if(n==='never'){u.fillStyle='#000';u.fillRect(0,0,W,H);const a=sm(.6,2,lt)*(1-sm(4.6,5.4,lt));u.globalAlpha=a;txt('I NEVER CALLED BACK.',W/2,82,'#ffffff',2,'c',false);u.globalAlpha=1}
   if(n==='grave'){const iT=CONT-sh.t0;
     if(lt>13&&lt<iT){const cd=9-Math.floor(lt-13);u.globalAlpha=Math.min(1,(lt-13)*3);box(60,22,200,52,'rgba(0,0,0,.8)','#ffd23f');txt('INSERT COIN',W/2,28,'#ffd23f',2,'c',false);txt('TO CONTINUE',W/2,46,'#ffffff',1,'c',false);txt(String(cd),W/2,56,cd<=4?'#ff4f4f':'#fff',2,'c',false);u.globalAlpha=1}
@@ -692,7 +695,7 @@ function buildAudio(ac){
   // GAME OVER
   {const a=s.gameover.t0+.3;[[67,.2],[66,.2],[65,.2],[64,.55],[null,.15],[60,.25],[55,.25],[48,1.4]].reduce((t,[m,d])=>{if(m)tone(t,d*.95,mtof(m),'square',.07),tone(t,d*.95,mtof(m-12),'triangle',.1);return t+d},a)}
   // VOICEMAIL
-  {const a=s.voicemail.t0;chords(a+1.6,s.voicemail.t1,50,progBars(PMAJ,0,4),{style:'pad',vol:.03});mel(a+5,s.voicemail.t1,52,bars(0,4),{oct:12,box:true,vol:.035})}
+  {const a=s.voicemail.t0;chords(a+1.6,s.voicemail.t1,50,progBars(PMAJ,0,4),{style:'pad',vol:.02});mel(a+5,s.voicemail.t1,52,bars(0,4),{oct:12,box:true,vol:.022})}
   // GRAVE: minor theme, then the coin
   {const a=s.grave.t0,iT=CONT;mel(a+.5,a+13,66,THEME,{tr:minor,type:'triangle',vol:.1});chords(a+.5,a+13,66,PMIN,{style:'pad',vol:.022,tr:m=>m});
     tone(a+13,iT-a-13,mtof(43),'triangle',.12,.4,.3);tone(a+13,iT-a-13,mtof(55),'square',.015,.4,.3);for(let i=0;i<7;i++){kick(a+13+i);kick(a+13.22+i)}
@@ -705,6 +708,10 @@ function buildAudio(ac){
   {const src=ac.createBufferSource();src.buffer=nb;src.loop=true;const f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=1400;f.Q.value=.6;const g=ac.createGain();g.gain.value=0;src.connect(f).connect(g).connect(master);src.start(0);
     const on=(a,b,v)=>{g.gain.setValueAtTime(0,a);g.gain.linearRampToValueAtTime(v,a+.4);g.gain.setValueAtTime(v,b-.5);g.gain.linearRampToValueAtTime(0,b)};
     on(s.grind.t0,s.grind.t1,.08);on(s.collapse.t0,s.collapse.t1,.1);on(s.never.t0+.5,CONT+1.2,.07)}
+  // ElevenLabs voice (via Higgsfield): Dad's voicemail through a phone-line filter, and its echo at the grave
+  if(VOICE){const play=(t,off,dur,vol,echo)=>{const sN=ac.createBufferSource();sN.buffer=VOICE;const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=320;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3200;const g=ac.createGain();g.gain.value=vol;sN.connect(hp).connect(lp).connect(g).connect(master);
+    if(echo){const d=ac.createDelay(1);d.delayTime.value=.32;const fb=ac.createGain();fb.gain.value=.45;g.connect(d);d.connect(fb).connect(d);d.connect(master)}sN.start(t,off,dur)};
+    play(s.voicemail.t0+VM_AT,0,VOICE.duration,1.5,false);play(s.grave.t0+11.9,12.6,2.2,.75,true)}
   // SFX
   for(const [k,t,arg] of SFX){
     if(k==='coin'){tone(t,.07,mtof(83),'square',.07);pluck(t+.07,mtof(88),.07,'square',.4)}
@@ -736,7 +743,10 @@ function wavB64(buf){const nc=buf.numberOfChannels,len=buf.length,sr=buf.sampleR
   const ch=[];for(let c=0;c<nc;c++)ch.push(buf.getChannelData(c));for(let i=0;i<len;i++)for(let c=0;c<nc;c++){const v=Math.max(-1,Math.min(1,ch[c][i]));data.setInt16(p,v*32767,true);p+=2}
   const bytes=new Uint8Array(data.buffer);let s='';for(let i=0;i<bytes.length;i+=32768)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+32768));return btoa(s)}
 let AUDIO=null;
-async function renderAudio(){if(AUDIO)return AUDIO;const ac=new OfflineAudioContext(2,Math.ceil(44100*(TOTAL+1)),44100);buildAudio(ac);AUDIO=await ac.startRendering();return AUDIO}
+let VOICE=null;
+async function renderAudio(){if(AUDIO)return AUDIO;const ac=new OfflineAudioContext(2,Math.ceil(44100*(TOTAL+1)),44100);
+  if(window.VM_B64&&!VOICE){try{const b=Uint8Array.from(atob(window.VM_B64),c=>c.charCodeAt(0));VOICE=await ac.decodeAudioData(b.buffer)}catch(e){console.warn('voice decode failed',e)}}
+  buildAudio(ac);AUDIO=await ac.startRendering();return AUDIO}
 window.__renderAudio=async()=>wavB64(await renderAudio());
 
 /* ================= player ================= */
