@@ -77,7 +77,7 @@ function overlay(t){
   if(t>81.8&&t<88.2){box(4,31,130,12,'rgba(8,8,16,.92)','#c0392b');txt('MISSED CALLS: DAD (3)',8,34,'#ff6b6b',1,'l',false)}
   if(t>93.2&&t<104.2){const msg='BREAKING: LEMON.IO COLLAPSES - 200 LAID OFF - FOUNDER SILENT - ';box(0,154,LW,12,'#c0392b');L.save();L.beginPath();L.rect(0,154,LW,12);L.clip();const off=Math.round((t-93.2)*40)%tw(msg+' ');txt(msg+msg+msg,LW-off-40,157,'#fff',1,'l',false);L.restore()}
   if(s.id==='BLACK'&&t<108.2){L.fillStyle='#000';L.fillRect(0,0,LW,LH);if(lt>.25)txt('GAME OVER',LW/2,78,'#ff3b3b',4,'c');if(lt>2.3){L.save();L.globalAlpha=Math.min(1,(lt-2.3)*2);txt('1 NEW VOICEMAIL - DAD',LW/2,132,'#fff',1,'c');L.restore()}}
-  if(t>108.2&&t<132.2){box(4,4,150,12,'rgba(8,8,16,.85)','#9be07a');txt('VOICEMAIL - DAD - 11:52 PM',8,7,'#9be07a',1,'l',false);
+  if(t>108.2&&t<132.2){box(4,4,162,12,'rgba(8,8,16,.85)','#9be07a');txt('VOICEMAIL - DAD - 11:52 PM',8,7,'#9be07a',1,'l',false);
     let cur=-1;VM.forEach(([a],i)=>{if(t>=VM_AT+a)cur=i});if(cur>=0){const [a,line]=VM[cur];const n=Math.floor((t-VM_AT-a)*22);box(20,184,344,16,'rgba(8,8,16,.72)');txt(line.slice(0,n),LW/2,189,'#ffffff',1,'c',false)}}
   if(s.id==='BLACK'&&t>132&&t<138){L.fillStyle='#000';L.fillRect(0,0,LW,LH);const a=sm(.6,2,lt)*(1-sm(4.6,5.4,lt));L.save();L.globalAlpha=a;txt('I NEVER CALLED BACK.',LW/2,100,'#fff',2,'c',false);L.restore()}
   if(t>151.3&&t<156.6){const a=sm(151.3,151.9,t)*(1-sm(156,156.6,t));L.save();L.globalAlpha=a;box(40,180,304,18,'rgba(8,8,16,.75)','#9be07a');txt('DAD: "ALL IT TAKES IS ONE TO PLAY AGAIN."',LW/2,186,'#d8f5c8',1,'c',false);L.restore()}
@@ -87,11 +87,11 @@ function overlay(t){
   const CARDS=[[187.3,191.8,'2024: STARTED AGAIN. SMALLER. HOME BY 6.'],[192.3,196.8,'2038: MAYA GRADUATES.'],[197.3,201.8,'2047: PLAYER 3 HAS JOINED - JUNE']];
   for(const [a,b,sx] of CARDS)if(t>a&&t<b){const al=Math.min(1,(t-a)*4,(b-t)*4);L.save();L.globalAlpha=al;box(Math.round(LW/2-tw(sx)/2-6),186,tw(sx)+12,14,'rgba(8,8,16,.82)','#ff9fd0');txt(sx,LW/2,190,'#fff',1,'c',false);L.restore()}
   // the life chart drawn across the night sky
-  if(t>220&&t<228){const a=sm(220.4,221.6,t)*(1-sm(227.3,228,t));const pts=[[0,4],...NODES.map((n,i)=>[i+1,n[1]])];const X=i=>34+i*(316/8),Y=v=>104-v*4.6;const prog=clamp((t-220.6)/3.2)*8;
+  if(t>220&&t<228){const a=sm(220.4,221.6,t)*(1-sm(227.3,228,t));const pts=[[0,4],...NODES.map((n,i)=>[i+1,n[1]])];const X=i=>26+i*(298/8),Y=v=>120-v*4.7;const prog=clamp((t-220.6)/3.2)*8;
     L.save();L.globalAlpha=a;L.fillStyle='rgba(255,255,255,.35)';for(let x=24;x<360;x+=6)L.fillRect(x,Math.round(Y(6.5)),3,1);
     L.fillStyle='#fff3c0';for(let i=0;i<8;i++){if(i>prog)break;const [x0,y0]=[X(i),Y(pts[i][1])],[x1,y1]=[X(i+1),Y(pts[i+1][1])];const kk=clamp(prog-i);const steps=60;for(let s2=0;s2<=steps*kk;s2++){const u=s2/steps;L.fillRect(Math.round(lerp(x0,x1,u)),Math.round(lerp(y0,y1,u)),2,2)}}
     NODES.forEach(([lab,v],i)=>{if(prog<i+1)return;const x=X(i+1),y=Y(v),peak=[0,2,3,5,7].includes(i);L.fillStyle=i===4?'#ff6b6b':i===7?'#ffd23f':'#fff';L.fillRect(x-1,y-1,4,4);
-      wrap(lab,10).forEach((l,j,arr)=>txt(l,x,peak?y-6-(arr.length-j)*8:y+6+j*8,i===4?'#ff8a8a':i===7?'#ffd23f':'#fff',1,'c'))});
+      wrap(lab,i===7?14:10).forEach((l,j,arr)=>txt(l,x,peak?y-6-(arr.length-j)*8:y+6+j*8,i===4?'#ff8a8a':i===7?'#ffd23f':'#fff',1,'c'))});
     if(t>223.8){L.globalAlpha=a*sm(223.8,224.6,t);txt('IT WAS NEVER A STRAIGHT LINE.',LW/2,150,'#fff',1,'c')}if(t>225.4){L.globalAlpha=a*sm(225.4,226.2,t);txt('AND IT WAS NEVER ABOUT THE MONEY.',LW/2,161,'#ffd23f',1,'c')}L.restore()}
   // final score
   if(s.id==='BLACK'&&t>=228){L.fillStyle='#000';L.fillRect(0,0,LW,LH);txt('FINAL SCORE',LW/2,16,'#ffd23f',2,'c');
@@ -100,7 +100,7 @@ function overlay(t){
     if(lt>7){L.save();L.globalAlpha=sm(7,8,lt);txt('CALL SOMEONE WHO BELIEVED IN YOU FIRST.',LW/2,140,'#fff',1,'c');L.restore()}
     if(lt>9){L.save();L.globalAlpha=sm(9,9.8,lt);txt('THANKS FOR PLAYING',LW/2,162,'#ffd23f',2,'c');L.restore()}}
   // fades
-  let f=Math.max(1-t/1.2,sm(103.6,104.2,t),sm(131.6,132.2,t)*(t<132.2?1:0),t>137.7&&t<139?1-(t-137.7)/1.3:0,sm(227.4,228,t)*(t<228?1:0),sm(TOTAL-1.2,TOTAL,t));
+  let f=Math.max(1-t/1.2,sm(103.6,104.2,t)*(t<104.2?1:0),sm(131.6,132.2,t)*(t<132.2?1:0),t>137.7&&t<139?1-(t-137.7)/1.3:0,sm(227.4,228,t)*(t<228?1:0),sm(TOTAL-1.2,TOTAL,t));
   if(t>CONT-.6&&t<CONT)f=Math.max(f,0);if(f>0){L.fillStyle=`rgba(0,0,0,${clamp(f)})`;L.fillRect(0,0,LW,LH)}
 }
 window.__overlay=t=>{overlay(t);return c.toDataURL('image/png')};
