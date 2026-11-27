@@ -35,12 +35,12 @@ const kf=(t,k)=>{if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++){cons
 const NAMECOL={YOU:'#4fc3ff',DAD:'#9be07a',MAYA:'#ff9fd0',JUNE:'#ffd23f'};
 const DLG=[[23.2,28.2,'YOU',"I'LL MAKE YOU PROUD, DAD.",0,'','',0],[28.4,34.1,'DAD','KIDDO... YOU ALREADY DO.',0,'','',0],
  [87.6,93.1,'MAYA',"...HE SAID HE'D COME.",0,'','',0],[144.2,150.6,'MAYA','DADDY? ARE WE GOING TO BE OK?',0,'','',0],[213.8,220.0,'YOU','KIDDO... YOU ALREADY DO.',0,'','',0]];
-const ACH=[[20.5,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f'],[37,'NEW QUEST','BUILD A COMPANY','#ffd23f'],[67.5,'ACHIEVEMENT UNLOCKED','FIRST 1,000 CUSTOMERS','#ffd23f'],
- [73,'ACHIEVEMENT UNLOCKED','VALUATION: $40,000,000','#ffd23f'],[85,'ACHIEVEMENT MISSED',"MAYA'S FIRST RECITAL",'#9a9a9a'],[178.5,'ACHIEVEMENT UNLOCKED','SHOWED UP','#ffd23f'],[212.5,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f']];
+const ACH=[[18.9,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f'],[37,'NEW QUEST','BUILD A COMPANY','#ffd23f'],[67.5,'ACHIEVEMENT UNLOCKED','FIRST 1,000 CUSTOMERS','#ffd23f'],
+ [73,'ACHIEVEMENT UNLOCKED','VALUATION: $40,000,000','#ffd23f'],[85,'ACHIEVEMENT MISSED',"MAYA'S FIRST RECITAL",'#9a9a9a'],[178.5,'ACHIEVEMENT UNLOCKED','SHOWED UP','#ffd23f'],[209.6,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f']];
 const STAGES=[[8.3,1,'1994 - THE LEMONADE STAND'],[34.5,2,'2014 - THE GARAGE'],[71.5,3,'2019 - GO BIG'],[176.3,4,'2023 - SECOND CHANCES'],[202.3,5,'2052 - THE LEMONADE STAND']];
 const VM=[[0,"HEY KIDDO. IT'S DAD."],[3.18,'SAW THE NEWS ABOUT THE COMPANY.'],[5.62,"I KNOW YOU'RE BUSY."],[7.05,"YOU DON'T HAVE TO CALL BACK."],[9.52,'HEY... YOU STILL GOT THAT QUARTER?'],[12.7,'ALL IT TAKES IS ONE TO PLAY AGAIN.'],[15.8,'WIN OR LOSE, KIDDO...'],[17.46,'YOU ALREADY MAKE ME PROUD.'],[20.54,'LOVE YOU. BYE.']];
-const MOR=[[0,.6],[20.5,.8],[40,1],[52,.4],[59,.2],[64,.9],[73,1],[82,.6],[90,.3],[100,0],[CONT,0],[CONT+1,.6],[180,1],[240,1]];
-const CASH=[[20.4,0],[20.5,.25],[34,.25],[35,12000],[49,9000],[59,312],[66.5,312],[71,250000],[72,1.2e6],[74,4e7],[94,4e7],[103,0],[240,0]];
+const MOR=[[0,.6],[18.9,.8],[40,1],[52,.4],[59,.2],[64,.9],[73,1],[82,.6],[90,.3],[100,0],[CONT,0],[CONT+1,.6],[180,1],[240,1]];
+const CASH=[[18.8,0],[18.9,.25],[34,.25],[35,12000],[49,9000],[59,312],[66.5,312],[71,250000],[72,1.2e6],[74,4e7],[94,4e7],[103,0],[240,0]];
 const MOM=[[CONT,0],[CONT+.5,1],[179,1],[179.1,2],[187,2],[219,6000],[240,6001]];
 const YEARS=[[0,1994],[34.2,2014],[49.2,2015],[60.2,2016],[71.2,2019],[93.2,2020],[176,2023],[187,2024],[192,2038],[197,2047],[202,2052]];
 const yearAt=t=>{let y=1994;for(const [a,v] of YEARS)if(t>=a)y=v;return y};
@@ -70,8 +70,8 @@ function overlay(t){
   if(t>66.2&&t<71.2){box(4,15,130,12,'rgba(0,0,0,.7)','#7ed957');txt('NEW CUSTOMERS: '+Math.min(1000,Math.floor((t-66.2)*260)),8,18,'#7ed957',1,'l',false)}
   if(t>77.2&&t<88.2){const clock=t<80?'6:58 PM':t<82.2?'7:01 PM':'7:04 PM';box(4,15,60,12,'rgba(0,0,0,.75)','#888');txt(clock,34,18,t>82.2?'#ff6b6b':'#fff',1,'c',false)}
   if(t>77.4&&t<81.8){box(4,31,206,22,'rgba(8,8,16,.92)','#ff9fd0');txt('MAYA (TEXT):',8,34,'#ff9fd0',1,'l',false);txt('RECITAL TONIGHT AT 7!! U PROMISED :)',8,43,'#fff',1,'l',false)}
-  if(t>80.2&&t<82.2){const dec=t>81.4;box(316,16,58,22,'rgba(8,8,16,.9)',dec?'#c0392b':'#9be07a');txt(dec?'DECLINED':'INCOMING',345,19,dec?'#ff6b6b':'#aaa',1,'c',false);txt('DAD',345,28,'#9be07a',1,'c',false)}
-  if(t>81.8&&t<88.2){box(4,31,130,12,'rgba(8,8,16,.92)','#c0392b');txt('MISSED CALLS: DAD (3)',8,34,'#ff6b6b',1,'l',false)}
+  if(t>77.4&&t<82.0){const dec=t>80.7;box(316,16,58,22,'rgba(8,8,16,.9)',dec?'#c0392b':'#9be07a');txt(dec?'DECLINED':'INCOMING',345,19,dec?'#ff6b6b':'#aaa',1,'c',false);txt('DAD',345,28,'#9be07a',1,'c',false)}
+  if(t>81.9&&t<88.2){box(4,31,130,12,'rgba(8,8,16,.92)','#c0392b');txt('MISSED CALLS: DAD (3)',8,34,'#ff6b6b',1,'l',false)}
   if(t>93.2&&t<104.2){const msg='BREAKING: LEMON.IO COLLAPSES - 200 LAID OFF - FOUNDER SILENT - ';box(0,154,LW,12,'#c0392b');L.save();L.beginPath();L.rect(0,154,LW,12);L.clip();const off=Math.round((t-93.2)*40)%tw(msg+' ');txt(msg+msg+msg,LW-off-40,157,'#fff',1,'l',false);L.restore()}
   if(s.id==='BLACK'&&t<108.2){L.fillStyle='#000';L.fillRect(0,0,LW,LH);if(lt>.25)txt('GAME OVER',LW/2,78,'#ff3b3b',4,'c');if(lt>2.3){L.save();L.globalAlpha=Math.min(1,(lt-2.3)*2);txt('1 NEW VOICEMAIL - DAD',LW/2,132,'#fff',1,'c');L.restore()}}
   if(t>108.2&&t<132.2){box(4,4,162,12,'rgba(8,8,16,.85)','#9be07a');txt('VOICEMAIL - DAD - 11:52 PM',8,7,'#9be07a',1,'l',false);
@@ -109,20 +109,37 @@ async function renderAudio(){
   // rain beds
   tone(106.8,.4,1000,'sine',.05); // voicemail beep (a pure tone, same as a real one)
   // foley: licensed Epidemic Sound recordings (via Higgsfield), audio/sfx
-  {const FOLEY=[['typing-laptop',39.4,0,4.6,1.4,.2,.4],['mouse-click',41.7,.3,.9,2.6,0,.1],['mouse-click',43.4,2.1,.9,2.6,0,.1],
-     ['notification',66.8,0,.9,1.4,0,.2],['notification',68.0,0,.9,1.4,0,.2],['notification',69.1,0,.9,1.4,0,.2],['notification',70.1,0,.9,1.4,0,.2],
-     ['typing-laptop',77.3,1.0,2.2,1.2,.2,.3],['mouse-click',79.6,.3,.6,2.4,0,.1],
-     ['applause-small',82.3,0,3.2,2.6,.2,1.2],['applause-hall',176.2,2,10.8,5.5,.8,1.6],['cheer-outdoor',192.2,3,4.8,4.5,.4,1.0],
-     ['rain-city',49.2,10,11,1.7,.8,1.2],['rain-city',93.2,40,11,2.1,.5,1],['rain-city',108.2,80,24,.8,1,1],['rain-umbrella',137.7,5,33.8,1.5,1.2,1.5],
-     ['phone-vibrate',44.2,.5,.9,1.2,0,.1],['phone-vibrate',80.2,.5,1.3,1.4,0,.1],['phone-vibrate',108.6,.5,1.4,1.0,0,.1],['notification',77.4,0,.9,1.4,0,.2],
-     ['hangup-beeps',131.8,.15,1.2,1.6,0,.1],['heartbeat',160.3,0,9.6,1.3,.5,.4],
-     ['coin-hand',20.4,.95,.7,3,0,.2],['coin-hand',212.4,.95,.7,3,0,.2],['coin-slot',169.85,0,1.6,2,0,.3],['retro-fanfare',CONT+.25,0,2.1,.9,0,.2],
-     ['retro-fall',104.5,0,1.25,.9,0,.1]];
-   for(const [a,h] of ACH)FOLEY.push(h.includes('MISSED')?['retro-fall',a,0,1.25,.8,0,.1]:['retro-achievement',a,0,2.7,.7,0,.3]);
-   for(const [a] of STAGES)FOLEY.push(['retro-select',a,0,1.1,.6,0,.1]);
-   for(let i=0;i<6;i++)FOLEY.push(['retro-select',235.2+i*1.3,0,.5,.35,0,.1]);
-   const cache={};for(const [f,at,off,dur,gain,fi,fo] of FOLEY){cache[f]=cache[f]||await ac.decodeAudioData(await (await fetch('audio/sfx/'+f+'.mp3')).arrayBuffer());
-     const src=ac.createBufferSource();src.buffer=cache[f];const g=ac.createGain();g.gain.setValueAtTime(fi?0:gain,at);if(fi)g.gain.linearRampToValueAtTime(gain,at+fi);g.gain.setValueAtTime(gain,at+dur-fo);g.gain.linearRampToValueAtTime(0,at+dur);src.connect(g).connect(m);src.start(at,off,dur+.05)}}
+  {// licensed Epidemic Sound recordings. Rain sits on its own; everything else goes through a quiet 'room' bus so it sits inside the picture.
+   const ir=ac.createBuffer(2,Math.floor(ac.sampleRate*1.2),ac.sampleRate);{const r=rng(5);for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<d.length;i++)d[i]=(r()*2-1)*Math.pow(1-i/d.length,3)}}
+   const bus=ac.createGain();bus.gain.value=.38;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=6500;const verb=ac.createConvolver();verb.buffer=ir;const wet=ac.createGain();wet.gain.value=.22;
+   bus.connect(lp);lp.connect(m);lp.connect(verb);verb.connect(wet).connect(m);
+   const FOLEY=[ // [file, start, offset, duration, gain, fadeIn, fadeOut, dest]
+     ['coin-hand',18.8,.95,.7,2.4,0,.2],['coin-hand',209.5,.95,.7,2.4,0,.2],
+     ['typing-laptop',39.6,0,3.2,.7,.3,.6],['mouse-click',43.4,0,.5,1.6,0,.1],
+     ['phone-vibrate',44.2,0,.7,1.0,0,.1],
+     ['notification',66.9,0,.8,1.1,0,.2],['notification',68.3,0,.8,1.0,0,.2],['notification',69.6,0,.8,.9,0,.2],
+     ['notification',77.5,0,.8,1.1,0,.2],['phone-vibrate',77.3,0,3.3,1.1,0,.2],
+     ['applause-small',82.3,0,3.0,2.2,.3,1.3],['applause-hall',176.4,2,10.4,4.2,1.2,2.0],['cheer-outdoor',192.4,3,4.6,3.4,.6,1.2],
+     ['hangup-beeps',131.8,0,1.2,1.2,0,.1],['heartbeat',160.3,0,9.6,1.0,.6,.5],
+     ['rain-city',49.2,10,11,1.7,.8,1.2,'dry'],['rain-city',93.2,40,11,2.1,.5,1,'dry'],['rain-city',108.2,80,24,.8,1,1,'dry']];
+   const cache={};for(const [f,at,off,dur,gain,fi,fo,dest] of FOLEY){const buf=cache[f]=cache[f]||await ac.decodeAudioData(await (await fetch('audio/sfx/'+f+'.mp3')).arrayBuffer());
+     let o=off;if(!off){const d=buf.getChannelData(0);let mx=0;for(let i=0;i<d.length;i++)mx=Math.max(mx,Math.abs(d[i]));const th=mx*.08;let i=0;while(i<d.length&&Math.abs(d[i])<th)i++;o=Math.max(0,i/buf.sampleRate-.01)}
+     const src=ac.createBufferSource();src.buffer=buf;const g=ac.createGain();g.gain.setValueAtTime(fi?0:gain,at);if(fi)g.gain.linearRampToValueAtTime(gain,at+fi);g.gain.setValueAtTime(gain,at+dur-fo);g.gain.linearRampToValueAtTime(0,at+dur);
+     src.connect(g).connect(dest==='dry'?m:bus);src.start(at,o,dur+.05)}
+   // grave: the same city rain, low, dipping right out under Dad's line
+   {const buf=cache['rain-city'];const src=ac.createBufferSource();src.buffer=buf;const g=ac.createGain();const A=137.7,B=CONT+1.5;
+    g.gain.setValueAtTime(0,A);g.gain.linearRampToValueAtTime(.9,A+1.2);g.gain.setValueAtTime(.9,151.0);g.gain.linearRampToValueAtTime(.2,151.4);g.gain.setValueAtTime(.2,154.0);g.gain.linearRampToValueAtTime(.9,155.0);
+    g.gain.setValueAtTime(.9,CONT);g.gain.linearRampToValueAtTime(0,B);src.connect(g).connect(m);src.start(A,120,B-A+.1)}
+   // game sounds: the original 8-bit ones
+   const jingle=t=>[1047,1319,1568,2093].forEach((f,i)=>tone(t+i*.06,.1,f,'square',.018));
+   for(const [a,h] of ACH)if(h.includes('MISSED'))[659,523,392].forEach((f,i)=>tone(a+i*.18,.25,f,'triangle',.06));else jingle(a);
+   for(const [a] of STAGES)[523,784,1047].forEach((f,i)=>tone(a+i*.07,.12,f,'square',.015));
+   [[67,.18],[66,.18],[65,.18],[64,.5]].reduce((t,[n,d])=>{tone(t,d,440*Math.pow(2,(n-69)/12),'square',.04);return t+d},104.5);
+   for(let i=0;i<9;i++)tone(160.5+i,.05,i>=5?1200:900,'square',.03);
+   const coin8=t=>{tone(t,.08,987.8,'square',.045);tone(t+.08,.5,1318.5,'square',.045)};
+   coin8(CONT);[523,659,784,1047,1319,1568].forEach((f,i)=>tone(CONT+.25+i*.06,.12,f,'square',.025));for(const f of[131,262,330,392,523])tone(CONT,2.2,f,'triangle',.05);
+   for(let i=0;i<6;i++)tone(235.2+i*1.3,.05,2093,'square',.02);
+  }
   // Dad's voice (ElevenLabs): the voicemail, then the echo at the grave
   if(window.VM_B64){const b=Uint8Array.from(atob(window.VM_B64),ch=>ch.charCodeAt(0));const v=await ac.decodeAudioData(b.buffer);
     const play=(t,off,dur,vol,echo)=>{const s=ac.createBufferSource();s.buffer=v;const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=300;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3400;const g=ac.createGain();g.gain.value=vol;s.connect(hp).connect(lp).connect(g).connect(m);
