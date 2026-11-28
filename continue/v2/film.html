@@ -103,7 +103,7 @@ async function renderAudio(){
   const nb=ac.createBuffer(1,88200,44100);{const d=nb.getChannelData(0),r=rng(1);for(let i=0;i<d.length;i++)d[i]=r()*2-1}
   const tone=(t,d,f,type,v,slide)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.005);g.gain.exponentialRampToValueAtTime(.0005,t+d);o.connect(g).connect(m);o.start(t);o.stop(t+d+.02)};
   // score, ducked under the voicemail
-  const sb=await ac.decodeAudioData(await (await fetch('audio/score-v1.mp3')).arrayBuffer());const ss=ac.createBufferSource();ss.buffer=sb;const sg=ac.createGain();
+  const sb=await ac.decodeAudioData(await (await fetch('audio/score-v2.mp3')).arrayBuffer());const ss=ac.createBufferSource();ss.buffer=sb;const sg=ac.createGain();
   {const W=[[VM_AT-1,VM_AT+23.6,.45]].sort((a,b)=>a[0]-b[0]);sg.gain.setValueAtTime(.9,0);
    for(const [a,b,lv] of W){sg.gain.setValueAtTime(.9,a);sg.gain.linearRampToValueAtTime(lv,a+.3);sg.gain.setValueAtTime(lv,b);sg.gain.linearRampToValueAtTime(.9,b+.4)}}ss.connect(sg).connect(m);ss.start(0);
   // rain beds
