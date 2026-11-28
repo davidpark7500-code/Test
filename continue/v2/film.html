@@ -14,7 +14,7 @@ const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)),lerp=(a,b,k)=>a+(b-a)*k,ease=
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
 /* ---------- EDIT DECISION LIST (anchored to the score: coin goes in at 170.0s, where the music swells) ---------- */
-const SHOTS=[['01',8],['02',5],['03',5],['04',5.2],['05',5],['06',6],
+const SHOTS=[['01',8],['02',5],['03',3,{in:2.2}],['04',5.2],['05',7],['06',6],
  ['07',5],['08',5],['09',5],['10',6],['11',5],['12',6],['13',5],
  ['14',6],['15',5],['16',6],['17',5],
  ['18',6],['19',5],['BLACK',4],['20',8],['21',8],['22',8],['BLACK',5.5],
@@ -35,12 +35,12 @@ const kf=(t,k)=>{if(t<=k[0][0])return k[0][1];for(let i=0;i<k.length-1;i++){cons
 const NAMECOL={YOU:'#4fc3ff',DAD:'#9be07a',MAYA:'#ff9fd0',JUNE:'#ffd23f'};
 const DLG=[[23.2,28.2,'YOU',"I'LL MAKE YOU PROUD, DAD.",0,'','',0],[28.4,34.1,'DAD','KIDDO... YOU ALREADY DO.',0,'','',0],
  [87.6,93.1,'MAYA',"...HE SAID HE'D COME.",0,'','',0],[144.2,150.6,'MAYA','DADDY? ARE WE GOING TO BE OK?',0,'','',0],[213.8,220.0,'YOU','KIDDO... YOU ALREADY DO.',0,'','',0]];
-const ACH=[[18.9,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f'],[37,'NEW QUEST','BUILD A COMPANY','#ffd23f'],[67.5,'ACHIEVEMENT UNLOCKED','FIRST 1,000 CUSTOMERS','#ffd23f'],
+const ACH=[[16.9,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f'],[37,'NEW QUEST','BUILD A COMPANY','#ffd23f'],[67.5,'ACHIEVEMENT UNLOCKED','FIRST 1,000 CUSTOMERS','#ffd23f'],
  [73,'ACHIEVEMENT UNLOCKED','VALUATION: $40,000,000','#ffd23f'],[85,'ACHIEVEMENT MISSED',"MAYA'S FIRST RECITAL",'#9a9a9a'],[178.5,'ACHIEVEMENT UNLOCKED','SHOWED UP','#ffd23f'],[209.6,'ACHIEVEMENT UNLOCKED','FIRST CUSTOMER!  +$0.25','#ffd23f']];
 const STAGES=[[8.3,1,'1994 - THE LEMONADE STAND'],[34.5,2,'2014 - THE GARAGE'],[71.5,3,'2019 - GO BIG'],[176.3,4,'2023 - SECOND CHANCES'],[202.3,5,'2052 - THE LEMONADE STAND']];
 const VM=[[0,"HEY KIDDO. IT'S DAD."],[3.18,'SAW THE NEWS ABOUT THE COMPANY.'],[5.62,"I KNOW YOU'RE BUSY."],[7.05,"YOU DON'T HAVE TO CALL BACK."],[9.52,'HEY... YOU STILL GOT THAT QUARTER?'],[12.7,'ALL IT TAKES IS ONE TO PLAY AGAIN.'],[15.8,'WIN OR LOSE, KIDDO...'],[17.46,'YOU ALREADY MAKE ME PROUD.'],[20.54,'LOVE YOU. BYE.']];
-const MOR=[[0,.6],[18.9,.8],[40,1],[52,.4],[59,.2],[64,.9],[73,1],[82,.6],[90,.3],[100,0],[CONT,0],[CONT+1,.6],[180,1],[240,1]];
-const CASH=[[18.8,0],[18.9,.25],[34,.25],[35,12000],[49,9000],[59,312],[66.5,312],[71,250000],[72,1.2e6],[74,4e7],[94,4e7],[103,0],[240,0]];
+const MOR=[[0,.6],[16.9,.8],[40,1],[52,.4],[59,.2],[64,.9],[73,1],[82,.6],[90,.3],[100,0],[CONT,0],[CONT+1,.6],[180,1],[240,1]];
+const CASH=[[16.8,0],[16.9,.25],[34,.25],[35,12000],[49,9000],[59,312],[66.5,312],[71,250000],[72,1.2e6],[74,4e7],[94,4e7],[103,0],[240,0]];
 const MOM=[[CONT,0],[CONT+.5,1],[179,1],[179.1,2],[187,2],[219,6000],[240,6001]];
 const YEARS=[[0,1994],[34.2,2014],[49.2,2015],[60.2,2016],[71.2,2019],[93.2,2020],[176,2023],[187,2024],[192,2038],[197,2047],[202,2052]];
 const yearAt=t=>{let y=1994;for(const [a,v] of YEARS)if(t>=a)y=v;return y};
@@ -114,12 +114,12 @@ async function renderAudio(){
    const bus=ac.createGain();bus.gain.value=.38;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=6500;const verb=ac.createConvolver();verb.buffer=ir;const wet=ac.createGain();wet.gain.value=.22;
    bus.connect(lp);lp.connect(m);lp.connect(verb);verb.connect(wet).connect(m);
    const FOLEY=[ // [file, start, offset, duration, gain, fadeIn, fadeOut, dest]
-     ['coin-hand',18.8,.95,.7,2.4,0,.2],['coin-hand',209.5,.95,.7,2.4,0,.2],
-     ['typing-laptop',39.6,0,3.2,.7,.3,.6],['mouse-click',43.4,0,.5,1.6,0,.1],
+     ['coin-hand',16.8,.95,.7,2.4,0,.2],['coin-hand',209.5,.95,.7,2.4,0,.2],
+     ['typing-laptop',39.25,0,1.25,.35,.05,.25],['typing-laptop',42.1,1.5,2.0,.35,.1,.3],
      ['phone-vibrate',44.2,0,.7,1.0,0,.1],
      ['notification',66.9,0,.8,1.1,0,.2],['notification',68.3,0,.8,1.0,0,.2],['notification',69.6,0,.8,.9,0,.2],
      ['notification',77.5,0,.8,1.1,0,.2],['phone-vibrate',77.3,0,3.3,1.1,0,.2],
-     ['applause-small',82.3,0,3.0,2.2,.3,1.3],['applause-hall',176.4,2,10.4,4.2,1.2,2.0],['cheer-outdoor',192.4,3,4.6,3.4,.6,1.2],
+     ['applause-hall',176.4,2,10.4,4.2,1.2,2.0],['cheer-outdoor',192.4,3,4.6,3.4,.6,1.2],
      ['hangup-beeps',131.8,0,1.2,1.2,0,.1],['heartbeat',160.3,0,9.6,1.0,.6,.5],
      ['rain-city',49.2,10,11,1.7,.8,1.2,'dry'],['rain-city',93.2,40,11,2.1,.5,1,'dry'],['rain-city',108.2,80,24,.8,1,1,'dry']];
    const cache={};for(const [f,at,off,dur,gain,fi,fo,dest] of FOLEY){const buf=cache[f]=cache[f]||await ac.decodeAudioData(await (await fetch('audio/sfx/'+f+'.mp3')).arrayBuffer());

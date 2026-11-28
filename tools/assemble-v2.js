@@ -28,7 +28,7 @@ srv.listen(0, async () => {
     if (s.id === 'BLACK') ff(['-f', 'lavfi', '-i', `color=black:s=${OW}x${OH}:r=${FPS}`, ...enc]);
     else {
       const clip = (K4 && fs.existsSync(path.join(V2, 'clips4k')) && find('clips4k', s.id, '.mp4')) || find('clips', s.id, '.mp4');
-      if (clip) { const k = Math.max(1, s.d / (dur(clip) - 0.05)); ff(['-i', clip, '-vf', `setpts=PTS*${k.toFixed(4)},fps=${FPS},scale=${OW}:${OH}:flags=lanczos${grade},tpad=stop_mode=clone:stop_duration=${s.d}`, ...enc]); }
+      if (clip) { const sin = s.in || 0, k = Math.max(1, s.d / (dur(clip) - sin - 0.05)); ff(['-ss', String(sin), '-i', clip, '-vf', `setpts=PTS*${k.toFixed(4)},fps=${FPS},scale=${OW}:${OH}:flags=lanczos${grade},tpad=stop_mode=clone:stop_duration=${s.d}`, ...enc]); }
       else { missing.push(s.id); const img = find('plates', s.id, '.png'); ff(['-loop', '1', '-i', img, '-vf', `scale=${OW*1.25}:-2,zoompan=z='1+0.08*on/${N}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${N}:s=${OW}x${OH}:fps=${FPS}${grade}`, ...enc]); }
     }
     list.push(`file '${seg}'`);
