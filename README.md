@@ -48,3 +48,8 @@ The structure follows two charts: *A Day in the Life of an Entrepreneur* (the ov
 - **`continue/v2/continue-v2.mp4`**: the film. 1080p, 4:00, 34 AI video clips in a chunky pixel-art style, an ElevenLabs score, and Dad's voicemail voiced with ElevenLabs.
 - Pipeline: character sheets (`continue/art/characters/`) → start images (`continue/v2/plates/`) → image-to-video clips (`continue/v2/clips/`) → `continue/v2/film.html` (edit list, game-text layer, audio mix) → `node tools/assemble-v2.js out.mp4`.
 - Higgsfield job ids for every image and clip are in `continue/v2/jobs.json`.
+
+### Screening master (4K)
+- **`continue/v2/screening/CONTINUE-an-8-bit-story-4K.mp4`**: 3840x2160, 25 fps, ~34 Mbps H.264 High@5.1, AAC 320k, 4:10. Stored with **Git LFS**: download it from GitHub's file page, or clone with `git lfs` installed.
+- Built from Topaz-upscaled 4K clips (`continue/v2/clips4k/`, also LFS) with `node tools/assemble-v2.js out.mp4 --4k`.
+- `continue/v2/continue-v2.mp4` is a 1080p preview made from the 4K master.
