@@ -2,7 +2,7 @@
  "note": "Higgsfield job ids. plates = start images; clips = video jobs (magi_2, 1080p, no audio).",
  "clips": {
   "01": "64729ee7-5175-41e5-b0ec-4254c70b81f2",
-  "02": "5192a72c-0ef2-4fb5-8130-189360cf9863",
+  "02": "781ae89a-443b-4109-8739-3650315c268a",
   "03": "8f60a576-7faa-4810-8ae4-72405ec3017a",
   "04": "1ffbea22-f9bc-4323-953a-640d4375d76e",
   "05": "797483ef-b591-44c4-9693-e7e134335e80",
@@ -28,5 +28,6 @@
   "25": "0821f561-ff32-44a8-be44-d05683bc0d05",
   "26": "8fa9c8f7-36ab-4b5e-90de-23bdc6fcfbad"
  },
- "music": "973fba41-9d42-4737-abe7-5797a988c959"
+ "music": "973fba41-9d42-4737-abe7-5797a988c959",
+ "plates_02_parked": "1c046bbf-f659-4adf-9baa-0ae253e7ebc6"
 }
